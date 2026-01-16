@@ -18,7 +18,7 @@ import Animated, {
   Easing,
   interpolate,
 } from 'react-native-reanimated';
-import { Card, PressableScale } from '../../src/components';
+import { Card, PressableScale, EmptyState } from '../../src/components';
 import { useAppStore } from '../../src/store/useAppStore';
 import { useTheme } from '../../src/context/ThemeContext';
 import { colors, typography } from '../../src/constants/theme';
@@ -214,20 +214,15 @@ export default function HomeTab() {
             </View>
           </Animated.View>
         ) : (
-          <Animated.View
-            entering={reduceMotion ? undefined : FadeInDown.delay(200).duration(400)}
-            style={[styles.emptySection, { marginBottom: tokens.spacing.xxl }]}
-          >
-            <View style={dynamicStyles.emptyStateCard}>
-              <Text style={[styles.emptyIcon, { marginBottom: tokens.spacing.lg }]}>📋</Text>
-              <Text style={[styles.emptyTitle, { fontSize: tokens.typography.lg, marginBottom: tokens.spacing.sm }]}>
-                No analyses yet
-              </Text>
-              <Text style={[styles.emptySubtitle, { fontSize: tokens.typography.sm }]}>
-                Tap the Analyze tab to settle your first argument
-              </Text>
-            </View>
-          </Animated.View>
+          <View style={[styles.emptySection, { marginBottom: tokens.spacing.xxl }]}>
+            <EmptyState
+              icon="⚖️"
+              title="No analyses yet"
+              subtitle="Tap the Analyze tab to settle your first argument"
+              actionLabel="Start First Analysis"
+              onAction={() => router.push('/(tabs)/analyze')}
+            />
+          </View>
         )}
 
         {/* Pro Upsell */}

@@ -18,7 +18,7 @@ import Animated, {
   SlideOutLeft,
   FadeInDown,
 } from 'react-native-reanimated';
-import { Card, PressableScale } from '../../src/components';
+import { Card, PressableScale, EmptyState } from '../../src/components';
 import { useAppStore } from '../../src/store/useAppStore';
 import { useHaptics } from '../../src/hooks';
 import { useTheme } from '../../src/context/ThemeContext';
@@ -267,24 +267,15 @@ export default function HistoryTab() {
 
         {/* Analysis List */}
         {analysisSummaries.length === 0 ? (
-          <Animated.View
-            entering={reduceMotion ? undefined : FadeIn.delay(100).duration(300)}
-            style={styles.emptyContainer}
-          >
-            <View style={styles.emptyStateCard}>
-              <Text style={styles.emptyIcon}>📋</Text>
-              <Text style={styles.emptyTitle}>No analyses yet</Text>
-              <Text style={styles.emptySubtitle}>
-                Your completed analyses will appear here
-              </Text>
-              <PressableScale
-                onPress={() => router.push('/(tabs)/analyze')}
-                style={styles.emptyButton}
-              >
-                <Text style={styles.emptyButtonText}>Start your first analysis</Text>
-              </PressableScale>
-            </View>
-          </Animated.View>
+          <View style={styles.emptyContainer}>
+            <EmptyState
+              icon="📜"
+              title="No analyses yet"
+              subtitle="Your completed analyses will appear here"
+              actionLabel="Start your first analysis"
+              onAction={() => router.push('/(tabs)/analyze')}
+            />
+          </View>
         ) : (
           groupedAnalyses.map((group, groupIndex) => (
             <Animated.View

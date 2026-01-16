@@ -4,5 +4,6 @@ export { PrimaryButton } from './PrimaryButton';
 export { AnimatedSegmentedControl } from './AnimatedSegmentedControl';
 export { StagedLoader } from './StagedLoader';
 export { VerdictReveal } from './VerdictReveal';
+export { EmptyState } from './EmptyState';
 export { Card } from './ui/Card';
 export { Toast, useToast } from './Toast';
