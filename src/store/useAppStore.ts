@@ -20,6 +20,10 @@ import {
   duplicateAnalysis as duplicateAnalysisInStorage,
   getAnalysisSummaries,
   calculateWeeklyInsights,
+  saveDraft,
+  loadDraft,
+  clearDraft,
+  type DraftData,
 } from '../services/storage';
 import { analyzeArgument } from '../services/ai';
 import { FREE_TIER_LIMITS, PRO_TIER_LIMITS } from '../types';
@@ -61,6 +65,12 @@ interface AppState {
   setEvidenceMode: (mode: EvidenceMode) => void;
   setContext: (context: string) => void;
   resetInput: () => void;
+
+  // Actions - Drafts
+  saveCurrentDraft: () => Promise<void>;
+  loadSavedDraft: () => Promise<DraftData | null>;
+  clearSavedDraft: () => Promise<void>;
+  restoreDraft: (draft: DraftData) => void;
 
   // Actions - Analysis
   canStartAnalysis: () => boolean;
@@ -177,6 +187,41 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentContext: '',
       currentAnalysis: null,
       analysisError: null,
+    });
+    // Clear any saved draft when resetting
+    clearDraft().catch(() => {});
+  },
+
+  // Draft actions
+  saveCurrentDraft: async () => {
+    const { currentSides, currentCommentatorStyle, currentEvidenceMode, currentContext } = get();
+    // Only save if there's content
+    const hasContent = currentSides.some(s => s.content.trim().length > 0);
+    if (!hasContent) return;
+
+    await saveDraft({
+      sides: currentSides,
+      commentatorStyle: currentCommentatorStyle,
+      evidenceMode: currentEvidenceMode,
+      context: currentContext,
+      savedAt: Date.now(),
+    });
+  },
+
+  loadSavedDraft: async () => {
+    return await loadDraft();
+  },
+
+  clearSavedDraft: async () => {
+    await clearDraft();
+  },
+
+  restoreDraft: (draft) => {
+    set({
+      currentSides: draft.sides as Side[],
+      currentCommentatorStyle: draft.commentatorStyle as CommentatorStyle,
+      currentEvidenceMode: draft.evidenceMode as EvidenceMode,
+      currentContext: draft.context,
     });
   },
 

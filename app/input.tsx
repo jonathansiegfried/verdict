@@ -1,5 +1,5 @@
 // Input Screen - Enter sides, select modes, start analysis
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,6 +9,7 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -50,6 +51,67 @@ export default function InputScreen() {
   const setContext = useAppStore((s) => s.setContext);
   const canStartAnalysis = useAppStore((s) => s.canStartAnalysis);
   const getRemainingAnalyses = useAppStore((s) => s.getRemainingAnalyses);
+  const saveCurrentDraft = useAppStore((s) => s.saveCurrentDraft);
+  const loadSavedDraft = useAppStore((s) => s.loadSavedDraft);
+  const clearSavedDraft = useAppStore((s) => s.clearSavedDraft);
+  const restoreDraft = useAppStore((s) => s.restoreDraft);
+
+  const [hasCheckedDraft, setHasCheckedDraft] = useState(false);
+  const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Check for saved draft on mount
+  useEffect(() => {
+    if (hasCheckedDraft) return;
+
+    const checkDraft = async () => {
+      const draft = await loadSavedDraft();
+      setHasCheckedDraft(true);
+
+      if (draft) {
+        // Check if current state is empty (default)
+        const currentIsEmpty = currentSides.every(s => s.content.trim() === '');
+
+        if (currentIsEmpty) {
+          Alert.alert(
+            'Restore Draft?',
+            'You have an unsaved draft from earlier. Would you like to continue where you left off?',
+            [
+              {
+                text: 'Discard',
+                style: 'destructive',
+                onPress: () => clearSavedDraft(),
+              },
+              {
+                text: 'Restore',
+                onPress: () => restoreDraft(draft),
+              },
+            ]
+          );
+        }
+      }
+    };
+
+    checkDraft();
+  }, [hasCheckedDraft, loadSavedDraft, clearSavedDraft, restoreDraft, currentSides]);
+
+  // Autosave on content changes (debounced)
+  useEffect(() => {
+    // Clear existing timer
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+
+    // Set new autosave timer (save after 2 seconds of no changes)
+    autosaveTimerRef.current = setTimeout(() => {
+      saveCurrentDraft();
+    }, 2000);
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+      }
+    };
+  }, [currentSides, currentCommentatorStyle, currentEvidenceMode, currentContext, saveCurrentDraft]);
 
   const remainingAnalyses = getRemainingAnalyses();
   const maxSides = settings.isPro ? PRO_TIER_LIMITS.maxSides : FREE_TIER_LIMITS.maxSides;
@@ -68,8 +130,10 @@ export default function InputScreen() {
       }
       return;
     }
+    // Clear draft when starting analysis
+    clearSavedDraft();
     router.push('/analyzing');
-  }, [isValid, remainingAnalyses, router]);
+  }, [isValid, remainingAnalyses, router, clearSavedDraft]);
 
   const handleAddSide = () => {
     trigger('light');

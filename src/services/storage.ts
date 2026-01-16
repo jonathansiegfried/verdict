@@ -7,6 +7,7 @@ const KEYS = {
   ANALYSES: 'verdict_analyses',
   SETTINGS: 'verdict_settings',
   INSIGHTS: 'verdict_insights',
+  DRAFT: 'verdict_draft',
 } as const;
 
 // Default settings
@@ -172,7 +173,41 @@ export async function calculateWeeklyInsights(): Promise<WeeklyInsights> {
   };
 }
 
+// Draft operations for autosave
+export interface DraftData {
+  sides: Array<{ id: string; label: string; content: string }>;
+  commentatorStyle: string;
+  evidenceMode: string;
+  context: string;
+  savedAt: number;
+}
+
+export async function saveDraft(draft: DraftData): Promise<void> {
+  await AsyncStorage.setItem(KEYS.DRAFT, JSON.stringify(draft));
+}
+
+export async function loadDraft(): Promise<DraftData | null> {
+  try {
+    const raw = await AsyncStorage.getItem(KEYS.DRAFT);
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as DraftData;
+    // Check if draft is older than 24 hours
+    const maxAge = 24 * 60 * 60 * 1000;
+    if (Date.now() - draft.savedAt > maxAge) {
+      await clearDraft();
+      return null;
+    }
+    return draft;
+  } catch {
+    return null;
+  }
+}
+
+export async function clearDraft(): Promise<void> {
+  await AsyncStorage.removeItem(KEYS.DRAFT);
+}
+
 // Clear all data (for testing/reset)
 export async function clearAllData(): Promise<void> {
-  await AsyncStorage.multiRemove([KEYS.ANALYSES, KEYS.SETTINGS, KEYS.INSIGHTS]);
+  await AsyncStorage.multiRemove([KEYS.ANALYSES, KEYS.SETTINGS, KEYS.INSIGHTS, KEYS.DRAFT]);
 }
