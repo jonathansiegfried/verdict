@@ -171,3 +171,6 @@ export interface TemplateSummary {
   lastUsedAt: number;
   useCount: number;
 }
+
+// Re-export design token types for convenience
+export * from './design-tokens';

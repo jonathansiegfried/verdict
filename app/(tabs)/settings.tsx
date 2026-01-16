@@ -40,8 +40,8 @@ function PresetPreviewTile({
   onSelect: () => void;
 }) {
   const { tokens } = useTheme();
-  const preset = PRESET_LIST.find(p => p.id === presetId)!;
-  const previewTokens = preset.tokens;
+  // PRESET_LIST items ARE the tokens now (no nested .tokens property)
+  const previewTokens = PRESET_LIST.find(p => p.id === presetId)!;
 
   return (
     <PressableScale onPress={onSelect} style={styles.presetTile}>
