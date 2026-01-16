@@ -81,6 +81,32 @@ export async function deleteAnalysis(id: string): Promise<void> {
   await AsyncStorage.setItem(KEYS.ANALYSES, JSON.stringify(filtered));
 }
 
+export async function renameAnalysis(id: string, newTitle: string): Promise<void> {
+  const analyses = await loadAnalyses();
+  const updated = analyses.map((a) =>
+    a.id === id ? { ...a, verdictHeadline: newTitle } : a
+  );
+  await AsyncStorage.setItem(KEYS.ANALYSES, JSON.stringify(updated));
+}
+
+export async function duplicateAnalysis(id: string): Promise<AnalysisResult | null> {
+  const analyses = await loadAnalyses();
+  const original = analyses.find((a) => a.id === id);
+  if (!original) return null;
+
+  const duplicate: AnalysisResult = {
+    ...original,
+    id: `analysis_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    createdAt: Date.now(),
+    verdictHeadline: `${original.verdictHeadline} (Copy)`,
+  };
+
+  analyses.unshift(duplicate);
+  const trimmed = analyses.slice(0, 100);
+  await AsyncStorage.setItem(KEYS.ANALYSES, JSON.stringify(trimmed));
+  return duplicate;
+}
+
 export async function getAnalysisById(id: string): Promise<AnalysisResult | null> {
   const analyses = await loadAnalyses();
   return analyses.find((a) => a.id === id) ?? null;

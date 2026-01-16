@@ -16,6 +16,8 @@ import {
   loadAnalyses,
   saveAnalysis,
   deleteAnalysis as deleteAnalysisFromStorage,
+  renameAnalysis as renameAnalysisInStorage,
+  duplicateAnalysis as duplicateAnalysisInStorage,
   getAnalysisSummaries,
   calculateWeeklyInsights,
 } from '../services/storage';
@@ -70,6 +72,8 @@ interface AppState {
   loadHistory: () => Promise<void>;
   selectAnalysis: (analysis: AnalysisResult | null) => void;
   deleteAnalysis: (id: string) => Promise<void>;
+  renameAnalysis: (id: string, newTitle: string) => Promise<void>;
+  duplicateAnalysis: (id: string) => Promise<void>;
 
   // Actions - Insights
   loadInsights: () => Promise<void>;
@@ -259,6 +263,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (selectedAnalysis?.id === id) {
       set({ selectedAnalysis: null });
     }
+  },
+
+  renameAnalysis: async (id, newTitle) => {
+    await renameAnalysisInStorage(id, newTitle);
+    await get().loadHistory();
+  },
+
+  duplicateAnalysis: async (id) => {
+    await duplicateAnalysisInStorage(id);
+    await get().loadHistory();
   },
 
   // Insights actions

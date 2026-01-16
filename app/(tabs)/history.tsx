@@ -37,6 +37,8 @@ export default function HistoryTab() {
 
   const analysisSummaries = useAppStore((s) => s.analysisSummaries);
   const deleteAnalysis = useAppStore((s) => s.deleteAnalysis);
+  const renameAnalysis = useAppStore((s) => s.renameAnalysis);
+  const duplicateAnalysis = useAppStore((s) => s.duplicateAnalysis);
   const weeklyInsights = useAppStore((s) => s.weeklyInsights);
   const loadInsights = useAppStore((s) => s.loadInsights);
 
@@ -190,14 +192,19 @@ export default function HistoryTab() {
     );
   }, [selectedItem, deleteAnalysis, trigger]);
 
-  const handleDuplicate = useCallback(() => {
-    // In a real implementation, this would duplicate the analysis
-    // For now, we'll show an info message
+  const handleDuplicate = useCallback(async () => {
+    if (!selectedItem) return;
+
     trigger('success');
     setShowActionSheet(false);
-    Alert.alert('Coming Soon', 'Duplicate feature will be available in the next update.');
+
+    try {
+      await duplicateAnalysis(selectedItem.id);
+    } catch {
+      Alert.alert('Error', 'Could not duplicate the analysis. Please try again.');
+    }
     setSelectedItem(null);
-  }, [trigger]);
+  }, [selectedItem, duplicateAnalysis, trigger]);
 
   const handleRename = useCallback(() => {
     if (!selectedItem) return;
@@ -206,14 +213,23 @@ export default function HistoryTab() {
     setShowRenameModal(true);
   }, [selectedItem]);
 
-  const handleRenameSubmit = useCallback(() => {
-    // In a real implementation, this would update the analysis title
-    // For now, we'll show an info message
+  const handleRenameSubmit = useCallback(async () => {
+    if (!selectedItem || !renameText.trim()) {
+      setShowRenameModal(false);
+      setSelectedItem(null);
+      return;
+    }
+
     trigger('success');
     setShowRenameModal(false);
-    Alert.alert('Coming Soon', 'Rename feature will be available in the next update.');
+
+    try {
+      await renameAnalysis(selectedItem.id, renameText.trim());
+    } catch {
+      Alert.alert('Error', 'Could not rename the analysis. Please try again.');
+    }
     setSelectedItem(null);
-  }, [trigger]);
+  }, [selectedItem, renameText, renameAnalysis, trigger]);
 
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
