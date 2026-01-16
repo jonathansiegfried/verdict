@@ -17,7 +17,6 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
   PrimaryButton,
   AnimatedSegmentedControl,
-  Card,
   PressableScale,
 } from '../src/components';
 import { useAppStore } from '../src/store/useAppStore';

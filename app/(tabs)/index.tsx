@@ -326,17 +326,6 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
   emptySection: {},
-  emptyIcon: {
-    fontSize: 48,
-  },
-  emptyTitle: {
-    fontWeight: typography.weights.semibold,
-    color: colors.textPrimary,
-  },
-  emptySubtitle: {
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
   proContent: {
     flex: 1,
   },
