@@ -1,6 +1,6 @@
 // Verdict Screen - Display analysis results with Win/Peace tabs
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, Pressable } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { StyleSheet, View, Text, ScrollView, Pressable, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
@@ -10,13 +10,15 @@ import {
   Card,
 } from '../src/components';
 import { useAppStore } from '../src/store/useAppStore';
-import { getAnalysisById } from '../src/services/storage';
+import { getAnalysisById, saveTakeaway } from '../src/services/storage';
+import { useHaptics } from '../src/hooks';
 import { colors, spacing, typography, borderRadius } from '../src/constants/theme';
 import type { AnalysisResult, OutcomeType } from '../src/types';
 
 export default function VerdictScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { trigger } = useHaptics();
 
   const currentAnalysis = useAppStore((s) => s.currentAnalysis);
   const resetInput = useAppStore((s) => s.resetInput);
@@ -24,6 +26,12 @@ export default function VerdictScreen() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [outcomeMode, setOutcomeMode] = useState<OutcomeType>('win');
   const [loading, setLoading] = useState(true);
+
+  // Reflection Loop state
+  const [takeawayText, setTakeawayText] = useState('');
+  const [takeawayExpanded, setTakeawayExpanded] = useState(false);
+  const [takeawaySaving, setTakeawaySaving] = useState(false);
+  const [takeawaySaved, setTakeawaySaved] = useState(false);
 
   // Load analysis
   useEffect(() => {
@@ -33,6 +41,8 @@ export default function VerdictScreen() {
       // First check if it's the current analysis
       if (currentAnalysis?.id === id) {
         setAnalysis(currentAnalysis);
+        setTakeawayText(currentAnalysis.takeaway || '');
+        setTakeawaySaved(!!currentAnalysis.takeaway);
         setLoading(false);
         return;
       }
@@ -41,6 +51,10 @@ export default function VerdictScreen() {
       if (id) {
         const stored = await getAnalysisById(id);
         setAnalysis(stored);
+        if (stored?.takeaway) {
+          setTakeawayText(stored.takeaway);
+          setTakeawaySaved(true);
+        }
       }
 
       setLoading(false);
@@ -48,6 +62,27 @@ export default function VerdictScreen() {
 
     loadAnalysis();
   }, [id, currentAnalysis]);
+
+  // Handle saving takeaway
+  const handleSaveTakeaway = useCallback(async () => {
+    if (!analysis || !takeawayText.trim()) return;
+
+    setTakeawaySaving(true);
+    try {
+      await saveTakeaway(analysis.id, takeawayText.trim());
+      trigger('success');
+      setTakeawaySaved(true);
+      setTakeawayExpanded(false);
+    } catch {
+      trigger('error');
+    }
+    setTakeawaySaving(false);
+  }, [analysis, takeawayText, trigger]);
+
+  const toggleTakeaway = useCallback(() => {
+    trigger('light');
+    setTakeawayExpanded((prev) => !prev);
+  }, [trigger]);
 
   const handleBack = () => {
     router.back();
@@ -169,6 +204,64 @@ export default function VerdictScreen() {
               <Text style={styles.changerText}>{changer}</Text>
             </View>
           ))}
+        </View>
+
+        {/* Reflection Loop - My Takeaway */}
+        <View style={styles.takeawaySection}>
+          <Pressable
+            onPress={toggleTakeaway}
+            style={styles.takeawayHeader}
+            accessibilityLabel={takeawaySaved ? 'View your takeaway' : 'Add your takeaway'}
+            accessibilityHint="Expand to write your personal reflection"
+          >
+            <View style={styles.takeawayHeaderLeft}>
+              <Text style={styles.takeawayIcon}>{takeawaySaved ? '💡' : '✏️'}</Text>
+              <Text style={styles.takeawayTitle}>
+                {takeawaySaved ? 'My Takeaway' : 'Add a Takeaway'}
+              </Text>
+            </View>
+            <Text style={styles.takeawayExpand}>
+              {takeawayExpanded ? '−' : '+'}
+            </Text>
+          </Pressable>
+
+          {takeawayExpanded && (
+            <View style={styles.takeawayContent}>
+              <Text style={styles.takeawayPrompt}>
+                What did you learn? What will you do differently?
+              </Text>
+              <TextInput
+                style={styles.takeawayInput}
+                value={takeawayText}
+                onChangeText={setTakeawayText}
+                placeholder="Write your personal reflection..."
+                placeholderTextColor={colors.textTertiary}
+                multiline
+                textAlignVertical="top"
+              />
+              <Pressable
+                onPress={handleSaveTakeaway}
+                disabled={takeawaySaving || !takeawayText.trim()}
+                style={[
+                  styles.takeawaySaveButton,
+                  (!takeawayText.trim() || takeawaySaving) && styles.takeawaySaveButtonDisabled,
+                ]}
+              >
+                <Text style={[
+                  styles.takeawaySaveText,
+                  (!takeawayText.trim() || takeawaySaving) && styles.takeawaySaveTextDisabled,
+                ]}>
+                  {takeawaySaving ? 'Saving...' : takeawaySaved ? 'Update' : 'Save'}
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
+          {!takeawayExpanded && takeawaySaved && takeawayText && (
+            <Text style={styles.takeawayPreview} numberOfLines={2}>
+              {takeawayText}
+            </Text>
+          )}
         </View>
 
         {/* Actions */}
@@ -366,6 +459,85 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.base,
     color: colors.textSecondary,
     lineHeight: typography.sizes.base * typography.lineHeights.normal,
+  },
+  takeawaySection: {
+    marginTop: spacing.xxl,
+    marginHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    overflow: 'hidden',
+  },
+  takeawayHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  takeawayHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  takeawayIcon: {
+    fontSize: 20,
+  },
+  takeawayTitle: {
+    fontSize: typography.sizes.base,
+    fontWeight: typography.weights.semibold,
+    color: colors.textPrimary,
+  },
+  takeawayExpand: {
+    fontSize: typography.sizes.xl,
+    color: colors.textTertiary,
+    fontWeight: '300' as const,
+  },
+  takeawayContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  takeawayPrompt: {
+    fontSize: typography.sizes.sm,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+    fontStyle: 'italic',
+  },
+  takeawayInput: {
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: typography.sizes.base,
+    color: colors.textPrimary,
+    minHeight: 100,
+    marginBottom: spacing.md,
+    lineHeight: typography.sizes.base * typography.lineHeights.relaxed,
+  },
+  takeawaySaveButton: {
+    backgroundColor: colors.accent,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    alignSelf: 'flex-end',
+  },
+  takeawaySaveButtonDisabled: {
+    backgroundColor: colors.backgroundTertiary,
+  },
+  takeawaySaveText: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.semibold,
+    color: colors.textPrimary,
+  },
+  takeawaySaveTextDisabled: {
+    color: colors.textTertiary,
+  },
+  takeawayPreview: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    fontSize: typography.sizes.sm,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    lineHeight: typography.sizes.sm * typography.lineHeights.normal,
   },
   actionsSection: {
     marginTop: spacing.xxxl,

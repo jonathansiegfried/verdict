@@ -114,6 +114,14 @@ export async function getAnalysisById(id: string): Promise<AnalysisResult | null
   return analyses.find((a) => a.id === id) ?? null;
 }
 
+export async function saveTakeaway(id: string, takeaway: string): Promise<void> {
+  const analyses = await loadAnalyses();
+  const updated = analyses.map((a) =>
+    a.id === id ? { ...a, takeaway } : a
+  );
+  await AsyncStorage.setItem(KEYS.ANALYSES, JSON.stringify(updated));
+}
+
 // Get summaries for history list
 export async function getAnalysisSummaries(): Promise<AnalysisSummary[]> {
   const analyses = await loadAnalyses();

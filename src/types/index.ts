@@ -81,6 +81,9 @@ export interface AnalysisResult {
 
   // Tags for categorization/insights
   tags: string[];
+
+  // User's personal takeaway/reflection (Reflection Loop)
+  takeaway?: string;
 }
 
 // Stored analysis (subset for history list)
