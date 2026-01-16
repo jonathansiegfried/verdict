@@ -39,9 +39,12 @@ function PresetPreviewTile({
   isSelected: boolean;
   onSelect: () => void;
 }) {
-  const { tokens } = useTheme();
+  const { tokens, getAccentColor } = useTheme();
+  const currentAccent = getAccentColor();
   // PRESET_LIST items ARE the tokens now (no nested .tokens property)
   const previewTokens = PRESET_LIST.find(p => p.id === presetId)!;
+  // Get the preset's OWN accent color for the preview
+  const presetAccent = previewTokens.palette.accent;
 
   return (
     <PressableScale onPress={onSelect} style={styles.presetTile}>
@@ -50,7 +53,7 @@ function PresetPreviewTile({
         {
           borderRadius: previewTokens.radius.lg,
           borderWidth: isSelected ? 2 : 1,
-          borderColor: isSelected ? colors.accent : colors.surfaceBorder,
+          borderColor: isSelected ? currentAccent : colors.surfaceBorder,
           backgroundColor: isSelected ? colors.surfaceElevated : colors.surface,
         }
       ]}>
@@ -71,26 +74,26 @@ function PresetPreviewTile({
           <View style={[styles.miniLine, { width: '80%' }]} />
           <View style={[styles.miniLine, { width: '60%' }]} />
         </View>
-        {/* Mini button */}
+        {/* Mini button - shows the PRESET's accent color (not current) */}
         <View style={[
           styles.miniButton,
           {
             borderRadius: previewTokens.radius.sm,
             height: 12,
-            backgroundColor: colors.accent,
+            backgroundColor: presetAccent,
           }
         ]} />
         {/* Selected indicator */}
         {isSelected && (
           <View style={styles.selectedBadge}>
-            <Ionicons name="checkmark-circle" size={18} color={colors.accent} />
+            <Ionicons name="checkmark-circle" size={18} color={currentAccent} />
           </View>
         )}
       </View>
       <Text style={[
         styles.presetName,
         { fontSize: tokens.typography.sm },
-        isSelected && styles.presetNameSelected
+        isSelected && { color: currentAccent }
       ]}>
         {name}
       </Text>
@@ -103,7 +106,8 @@ function PresetPreviewTile({
 
 export default function SettingsTab() {
   const router = useRouter();
-  const { tokens, preset, setPreset, reduceMotion } = useTheme();
+  const { tokens, preset, setPreset, reduceMotion, getAccentColor } = useTheme();
+  const accentColor = getAccentColor();
   const { visible: toastVisible, message: toastMessage, showToast, hideToast } = useToast();
 
   const settings = useAppStore((s) => s.settings);
@@ -313,7 +317,7 @@ export default function SettingsTab() {
 
         {/* Design Presets Section - Featured! */}
         <Animated.View
-          entering={reduceMotion ? undefined : FadeInDown.delay(50).duration(300)}
+          entering={reduceMotion ? undefined : FadeInDown.delay(tokens.motion.staggerDelay).duration(300).springify().damping(tokens.motion.springDamping)}
           style={[styles.section, { marginBottom: tokens.spacing.xxl }]}
         >
           <Text style={[styles.sectionTitle, { fontSize: tokens.typography.sm, marginBottom: tokens.spacing.md }]}>
@@ -339,7 +343,7 @@ export default function SettingsTab() {
 
         {/* Preferences Section */}
         <Animated.View
-          entering={reduceMotion ? undefined : FadeInDown.delay(100).duration(300)}
+          entering={reduceMotion ? undefined : FadeInDown.delay(tokens.motion.staggerDelay * 2).duration(300).springify().damping(tokens.motion.springDamping)}
           style={[styles.section, { marginBottom: tokens.spacing.xxl }]}
         >
           <Text style={[styles.sectionTitle, { fontSize: tokens.typography.sm, marginBottom: tokens.spacing.md }]}>
@@ -358,7 +362,7 @@ export default function SettingsTab() {
               <Switch
                 value={settings.hapticsEnabled}
                 onValueChange={(value) => updateSettings({ hapticsEnabled: value })}
-                trackColor={{ false: colors.surface, true: colors.accent }}
+                trackColor={{ false: colors.surface, true: accentColor }}
                 thumbColor={colors.textPrimary}
               />
             </View>
@@ -377,7 +381,7 @@ export default function SettingsTab() {
               <Switch
                 value={settings.reduceMotion}
                 onValueChange={(value) => updateSettings({ reduceMotion: value })}
-                trackColor={{ false: colors.surface, true: colors.accent }}
+                trackColor={{ false: colors.surface, true: accentColor }}
                 thumbColor={colors.textPrimary}
               />
             </View>
@@ -414,7 +418,7 @@ export default function SettingsTab() {
               {!settings.isPro && (
                 <PressableScale
                   onPress={handleUpgrade}
-                  style={[styles.upgradeButton, { borderRadius: tokens.radius.md }]}
+                  style={[styles.upgradeButton, { borderRadius: tokens.radius.md, backgroundColor: accentColor }]}
                 >
                   <Text style={[styles.upgradeButtonText, { fontSize: tokens.typography.sm }]}>
                     Upgrade
@@ -431,7 +435,7 @@ export default function SettingsTab() {
             <Switch
               value={settings.isPro}
               onValueChange={togglePro}
-              trackColor={{ false: colors.surface, true: colors.accent }}
+              trackColor={{ false: colors.surface, true: accentColor }}
               thumbColor={colors.textPrimary}
             />
           </View>
@@ -619,9 +623,6 @@ const styles = StyleSheet.create({
     fontWeight: typography.weights.medium,
     color: colors.textPrimary,
   },
-  presetNameSelected: {
-    color: colors.accent,
-  },
   presetDesc: {
     color: colors.textTertiary,
   },
@@ -680,7 +681,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   upgradeButton: {
-    backgroundColor: colors.accent,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
