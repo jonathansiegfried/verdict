@@ -30,6 +30,7 @@ import {
   evidenceModes,
 } from '../src/constants/theme';
 import { FREE_TIER_LIMITS, PRO_TIER_LIMITS } from '../src/types';
+import type { CommentatorStyle } from '../src/constants/theme';
 
 export default function InputScreen() {
   const router = useRouter();
@@ -258,7 +259,7 @@ export default function InputScreen() {
               {styleOptions.map((option) => (
                 <PressableScale
                   key={option.id}
-                  onPress={() => setCommentatorStyle(option.id as any)}
+                  onPress={() => setCommentatorStyle(option.id as CommentatorStyle)}
                   style={[
                     styles.styleChip,
                     currentCommentatorStyle === option.id && styles.styleChipActive,
