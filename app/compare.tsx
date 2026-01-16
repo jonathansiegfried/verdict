@@ -22,7 +22,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export default function CompareScreen() {
   const router = useRouter();
   const { ids } = useLocalSearchParams<{ ids: string }>();
-  const { tokens, reduceMotion } = useTheme();
+  const { tokens, reduceMotion, getAccentColor } = useTheme();
+  const accentColor = getAccentColor();
 
   const [analyses, setAnalyses] = useState<AnalysisResult[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,7 +82,7 @@ export default function CompareScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Could not load analyses for comparison</Text>
-          <PressableScale onPress={handleBack} style={styles.backButton}>
+          <PressableScale onPress={handleBack} style={[styles.backButton, { backgroundColor: accentColor }]}>
             <Text style={styles.backButtonText}>Go Back</Text>
           </PressableScale>
         </View>
@@ -97,7 +98,7 @@ export default function CompareScreen() {
         style={styles.header}
       >
         <Pressable onPress={handleBack} hitSlop={12}>
-          <Text style={styles.backLink}>← Back</Text>
+          <Text style={[styles.backLink, { color: accentColor }]}>← Back</Text>
         </Pressable>
         <Text style={styles.headerTitle}>Compare</Text>
         <View style={styles.headerSpacer} />
@@ -112,7 +113,7 @@ export default function CompareScreen() {
           <PressableScale
             key={tab}
             onPress={() => setActiveTab(tab)}
-            style={[styles.tab, activeTab === tab && styles.tabActive]}
+            style={[styles.tab, activeTab === tab && { backgroundColor: accentColor }]}
           >
             <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -158,7 +159,7 @@ export default function CompareScreen() {
                       {analysis.winAnalysis?.winnerId ? (
                         <>
                           <Text style={styles.outcomeLabel}>Winner</Text>
-                          <Text style={styles.outcomeValue}>
+                          <Text style={[styles.outcomeValue, { color: accentColor }]}>
                             {analysis.winAnalysis.winnerLabel}
                           </Text>
                           <Text style={styles.outcomeConfidence}>
@@ -183,7 +184,7 @@ export default function CompareScreen() {
               <View style={styles.compareRow}>
                 {analyses.map((analysis) => (
                   <View key={analysis.id} style={[styles.compareColumn, { width: cardWidth }]}>
-                    <View style={styles.styleTag}>
+                    <View style={[styles.styleTag, { backgroundColor: accentColor }]}>
                       <Text style={styles.styleTagText}>
                         {analysis.input.commentatorStyle}
                       </Text>
@@ -238,7 +239,7 @@ export default function CompareScreen() {
                             <View
                               style={[
                                 styles.scoreBarFill,
-                                { width: `${avgScore * 10}%` },
+                                { width: `${avgScore * 10}%`, backgroundColor: accentColor },
                               ]}
                             />
                           </View>
@@ -264,7 +265,7 @@ export default function CompareScreen() {
                       analysis.patternsDetected.slice(0, 4).map((pattern, idx) => (
                         <View key={idx} style={styles.patternItem}>
                           <Text style={styles.patternName}>{pattern.name}</Text>
-                          <Text style={styles.patternCount}>
+                          <Text style={[styles.patternCount, { color: accentColor }]}>
                             {pattern.occurrences.length}x
                           </Text>
                         </View>
