@@ -532,13 +532,13 @@ const styles = StyleSheet.create({
   emptySection: {},
   quickStartSection: {},
   quickStartScrollContent: {
-    gap: 12,
-    paddingRight: 4,
+    gap: spacing.md,
+    paddingRight: spacing.xs,
   },
   templateCard: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
     width: 160,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
