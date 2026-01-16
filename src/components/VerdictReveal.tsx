@@ -1,6 +1,6 @@
 // VerdictReveal - Animated verdict display with staggered reveals
 // The "signature moment" of the app - headline slides in, bullets stagger, scores pop
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -162,22 +162,82 @@ export function VerdictReveal({ result, outcomeMode }: VerdictRevealProps) {
   const reduceMotion = useReducedMotion();
   const { trigger } = useHaptics();
   const hasTriggeredHaptic = useRef(false);
+  const [showContent, setShowContent] = useState(false);
 
-  // Trigger success haptic once on mount
+  // Pulse animation for the verdict badge
+  const pulseScale = useSharedValue(1);
+
+  // 2-STEP REVEAL: Brief pause before showing content
   useEffect(() => {
+    if (reduceMotion) {
+      setShowContent(true);
+      return;
+    }
+
+    // Step 1: Brief anticipation pause (600ms)
+    const revealTimer = setTimeout(() => {
+      setShowContent(true);
+    }, 600);
+
+    return () => clearTimeout(revealTimer);
+  }, [reduceMotion]);
+
+  // Trigger haptic and pulse when content appears
+  useEffect(() => {
+    if (!showContent) return;
+
     if (!hasTriggeredHaptic.current) {
       hasTriggeredHaptic.current = true;
-      const delay = reduceMotion ? 0 : 300;
-      setTimeout(() => trigger('success'), delay);
-    }
-  }, [trigger, reduceMotion]);
+      // Heavy haptic for the "moment of truth"
+      trigger('success');
 
+      // Soft pulse animation on the badge
+      if (!reduceMotion) {
+        pulseScale.value = withSequence(
+          withTiming(1.08, { duration: 150 }),
+          withTiming(0.97, { duration: 100 }),
+          withSpring(1, { damping: 12, stiffness: 200 })
+        );
+      }
+    }
+  }, [showContent, trigger, reduceMotion, pulseScale]);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+  }));
+
+  // Adjusted delays (after the 600ms initial pause)
   const headlineDelay = 0;
-  const explanationDelay = 200;
-  const bulletBaseDelay = 400;
+  const explanationDelay = 150;
+  const bulletBaseDelay = 350;
   const bulletStagger = 60;
-  const scoreBaseDelay = 700;
+  const scoreBaseDelay = 600;
   const scoreStagger = 80;
+
+  // Don't render anything during the anticipation pause (creates the "moment")
+  if (!showContent && !reduceMotion) {
+    return (
+      <View style={styles.anticipationContainer}>
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          style={styles.anticipationContent}
+        >
+          <Text style={styles.anticipationText}>Analyzing...</Text>
+          <View style={styles.anticipationDots}>
+            <Animated.View
+              style={[styles.dot, { opacity: 0.4 }]}
+            />
+            <Animated.View
+              style={[styles.dot, { opacity: 0.6 }]}
+            />
+            <Animated.View
+              style={[styles.dot, { opacity: 0.8 }]}
+            />
+          </View>
+        </Animated.View>
+      </View>
+    );
+  }
 
   // Get bullets based on outcome mode
   const bullets =
@@ -221,7 +281,7 @@ export function VerdictReveal({ result, outcomeMode }: VerdictRevealProps) {
         {result.verdictExplanation}
       </Animated.Text>
 
-      {/* Winner badge for win mode with celebration */}
+      {/* Winner badge for win mode with celebration + pulse */}
       {outcomeMode === 'win' && result.winAnalysis?.winnerLabel && (
         <View style={styles.winnerBadgeContainer}>
           <CelebrationEffect reduceMotion={reduceMotion} />
@@ -231,7 +291,7 @@ export function VerdictReveal({ result, outcomeMode }: VerdictRevealProps) {
                 ? undefined
                 : FadeInUp.delay(bulletBaseDelay - 100).duration(200).springify()
             }
-            style={styles.winnerBadge}
+            style={[styles.winnerBadge, pulseStyle]}
           >
             <Text style={styles.winnerLabel}>
               {result.winAnalysis.winnerLabel}
@@ -241,7 +301,7 @@ export function VerdictReveal({ result, outcomeMode }: VerdictRevealProps) {
         </View>
       )}
 
-      {/* Peace badge for peace mode */}
+      {/* Peace badge for peace mode with pulse */}
       {outcomeMode === 'peace' && (
         <View style={styles.winnerBadgeContainer}>
           <CelebrationEffect reduceMotion={reduceMotion} />
@@ -251,7 +311,7 @@ export function VerdictReveal({ result, outcomeMode }: VerdictRevealProps) {
                 ? undefined
                 : FadeInUp.delay(bulletBaseDelay - 100).duration(200).springify()
             }
-            style={styles.peaceBadge}
+            style={[styles.peaceBadge, pulseStyle]}
           >
             <Text style={styles.peaceIcon}>🕊️</Text>
             <Text style={styles.peaceLabel}>Path to Resolution</Text>
@@ -337,6 +397,33 @@ export function VerdictReveal({ result, outcomeMode }: VerdictRevealProps) {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.lg,
+  },
+  // Anticipation pause state (the "moment of truth" build-up)
+  anticipationContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xxxl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 200,
+  },
+  anticipationContent: {
+    alignItems: 'center',
+  },
+  anticipationText: {
+    fontSize: typography.sizes.lg,
+    fontWeight: typography.weights.medium,
+    color: colors.textSecondary,
+    marginBottom: spacing.lg,
+  },
+  anticipationDots: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.accent,
   },
   headline: {
     fontSize: typography.sizes.xxl,
