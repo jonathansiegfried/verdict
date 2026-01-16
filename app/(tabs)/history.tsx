@@ -50,6 +50,10 @@ export default function HistoryTab() {
   const [renameText, setRenameText] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+
   // Compare mode state
   const [compareMode, setCompareMode] = useState(false);
   const [compareSelection, setCompareSelection] = useState<string[]>([]);
@@ -143,6 +147,19 @@ export default function HistoryTab() {
     setRefreshing(false);
   }, [loadInsights, trigger]);
 
+  // Filter analyses by search query
+  const filteredAnalyses = useMemo(() => {
+    if (!searchQuery.trim()) return analysisSummaries;
+    const query = searchQuery.toLowerCase().trim();
+    return analysisSummaries.filter((analysis) => {
+      const headline = analysis.verdictHeadline.toLowerCase();
+      const participants = analysis.participantLabels.join(' ').toLowerCase();
+      const tags = analysis.tags.join(' ').toLowerCase();
+      const style = analysis.commentatorStyle.toLowerCase();
+      return headline.includes(query) || participants.includes(query) || tags.includes(query) || style.includes(query);
+    });
+  }, [analysisSummaries, searchQuery]);
+
   // Group analyses by date
   const groupedAnalyses = useMemo((): GroupedAnalyses[] => {
     const now = new Date();
@@ -156,7 +173,7 @@ export default function HistoryTab() {
       Older: [],
     };
 
-    analysisSummaries.forEach((analysis) => {
+    filteredAnalyses.forEach((analysis) => {
       const date = new Date(analysis.createdAt);
       const analysisDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
@@ -174,7 +191,7 @@ export default function HistoryTab() {
     return Object.entries(groups)
       .filter(([_, data]) => data.length > 0)
       .map(([title, data]) => ({ title, data }));
-  }, [analysisSummaries]);
+  }, [filteredAnalyses]);
 
   const handleOpenAnalysis = (id: string) => {
     router.push({ pathname: '/verdict', params: { id } });
@@ -257,10 +274,21 @@ export default function HistoryTab() {
     });
   };
 
+  // Search handlers
+  const toggleSearch = useCallback(() => {
+    trigger('light');
+    setShowSearch((prev) => !prev);
+    if (showSearch) {
+      setSearchQuery('');
+    }
+  }, [trigger, showSearch]);
+
   // Compare mode handlers
   const toggleCompareMode = useCallback(() => {
     setCompareMode((prev) => !prev);
     setCompareSelection([]);
+    setShowSearch(false);
+    setSearchQuery('');
     trigger('light');
   }, [trigger]);
 
@@ -307,30 +335,64 @@ export default function HistoryTab() {
           <View>
             <Text style={styles.headerTitle}>History</Text>
             <Text style={styles.headerSubtitle}>
-              {analysisSummaries.length} {analysisSummaries.length === 1 ? 'analysis' : 'analyses'}
+              {searchQuery ? `${filteredAnalyses.length} of ${analysisSummaries.length}` : analysisSummaries.length} {analysisSummaries.length === 1 ? 'analysis' : 'analyses'}
             </Text>
           </View>
-          {analysisSummaries.length >= 2 && (
-            <PressableScale
-              onPress={toggleCompareMode}
-              style={[
-                styles.compareToggle,
-                compareMode && styles.compareToggleActive,
-              ]}
-              accessibilityLabel={compareMode ? 'Exit compare mode' : 'Enter compare mode'}
-              accessibilityHint={compareMode ? 'Tap to exit selection mode' : 'Tap to select items to compare'}
-            >
-              <Text style={[
-                styles.compareToggleText,
-                compareMode && styles.compareToggleTextActive,
-              ]}>
-                {compareMode ? 'Cancel' : 'Compare'}
-              </Text>
-            </PressableScale>
-          )}
+          <View style={styles.headerActions}>
+            {analysisSummaries.length >= 1 && !compareMode && (
+              <PressableScale
+                onPress={toggleSearch}
+                style={[
+                  styles.headerActionButton,
+                  showSearch && { backgroundColor: accentColor },
+                ]}
+                accessibilityLabel={showSearch ? 'Close search' : 'Open search'}
+              >
+                <Text style={[styles.headerActionIcon, showSearch && { color: colors.textPrimary }]}>
+                  {showSearch ? '✕' : '🔍'}
+                </Text>
+              </PressableScale>
+            )}
+            {analysisSummaries.length >= 2 && (
+              <PressableScale
+                onPress={toggleCompareMode}
+                style={[
+                  styles.compareToggle,
+                  compareMode && { backgroundColor: accentColor, borderColor: accentColor },
+                ]}
+                accessibilityLabel={compareMode ? 'Exit compare mode' : 'Enter compare mode'}
+                accessibilityHint={compareMode ? 'Tap to exit selection mode' : 'Tap to select items to compare'}
+              >
+                <Text style={[
+                  styles.compareToggleText,
+                  compareMode && styles.compareToggleTextActive,
+                ]}>
+                  {compareMode ? 'Cancel' : 'Compare'}
+                </Text>
+              </PressableScale>
+            )}
+          </View>
         </View>
+        {/* Search Input */}
+        {showSearch && (
+          <Animated.View
+            entering={FadeInDown.duration(200)}
+            style={styles.searchContainer}
+          >
+            <TextInput
+              style={[styles.searchInput, { borderColor: accentColor }]}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search by title, participants, tags..."
+              placeholderTextColor={colors.textTertiary}
+              autoFocus
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </Animated.View>
+        )}
         {compareMode && (
-          <Text style={styles.compareHint}>
+          <Text style={[styles.compareHint, { color: accentColor }]}>
             Select 2-3 analyses to compare
           </Text>
         )}
@@ -351,20 +413,20 @@ export default function HistoryTab() {
         }
       >
         {/* Weekly Insights */}
-        {weeklyInsights && weeklyInsights.totalAnalyses > 0 && (
+        {weeklyInsights && weeklyInsights.totalAnalyses > 0 && !searchQuery && (
           <Animated.View
             entering={reduceMotion ? undefined : FadeInDown.delay(tokens.motion.staggerDelay).duration(300).springify().damping(tokens.motion.springDamping)}
             style={styles.insightsSection}
           >
             <View style={styles.insightsRow}>
               <View style={styles.insightCard}>
-                <Text style={styles.insightValue}>
+                <Text style={[styles.insightValue, { color: accentColor }]}>
                   {weeklyInsights.totalAnalyses}
                 </Text>
                 <Text style={styles.insightLabel}>This Week</Text>
               </View>
               <View style={styles.insightCard}>
-                <Text style={styles.insightValue}>
+                <Text style={[styles.insightValue, { color: accentColor }]}>
                   {weeklyInsights.mostUsedStyle}
                 </Text>
                 <Text style={styles.insightLabel}>Top Style</Text>
@@ -382,6 +444,16 @@ export default function HistoryTab() {
               subtitle="Your completed analyses will appear here"
               actionLabel="Start your first analysis"
               onAction={() => router.push('/(tabs)/analyze')}
+            />
+          </View>
+        ) : filteredAnalyses.length === 0 && searchQuery ? (
+          <View style={styles.emptyContainer}>
+            <EmptyState
+              icon="🔍"
+              title="No results"
+              subtitle={`No analyses match "${searchQuery}"`}
+              actionLabel="Clear search"
+              onAction={() => setSearchQuery('')}
             />
           </View>
         ) : (
@@ -405,13 +477,13 @@ export default function HistoryTab() {
                     padding="md"
                     style={[
                       styles.analysisCard,
-                      compareMode && compareSelection.includes(analysis.id) && styles.analysisCardSelected,
+                      compareMode && compareSelection.includes(analysis.id) && { borderColor: accentColor, borderWidth: 2 },
                     ]}
                   >
                     {compareMode && (
                       <View style={[
                         styles.selectionIndicator,
-                        compareSelection.includes(analysis.id) && styles.selectionIndicatorSelected,
+                        compareSelection.includes(analysis.id) && { backgroundColor: accentColor, borderColor: accentColor },
                       ]}>
                         {compareSelection.includes(analysis.id) && (
                           <Text style={styles.checkmark}>✓</Text>
@@ -430,7 +502,7 @@ export default function HistoryTab() {
                       </Text>
                     </View>
                     <View style={styles.analysisFooter}>
-                      <View style={styles.styleTag}>
+                      <View style={[styles.styleTag, { backgroundColor: accentColor }]}>
                         <Text style={styles.styleTagText}>
                           {analysis.commentatorStyle}
                         </Text>
@@ -470,7 +542,7 @@ export default function HistoryTab() {
         >
           <PressableScale
             onPress={handleStartCompare}
-            style={styles.compareButton}
+            style={[styles.compareButton, { backgroundColor: accentColor }]}
             accessibilityLabel={`Compare ${compareSelection.length} analyses`}
             accessibilityHint="Opens comparison view"
           >
@@ -554,7 +626,7 @@ export default function HistoryTab() {
               </PressableScale>
               <PressableScale
                 onPress={handleRenameSubmit}
-                style={styles.renameSaveButton}
+                style={[styles.renameSaveButton, { backgroundColor: accentColor }]}
               >
                 <Text style={styles.renameSaveText}>Save</Text>
               </PressableScale>
@@ -580,6 +652,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  headerActionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+  },
+  headerActionIcon: {
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
+  searchContainer: {
+    marginTop: spacing.md,
+  },
+  searchInput: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: typography.sizes.base,
+    color: colors.textPrimary,
+    borderWidth: 2,
   },
   compareToggle: {
     paddingHorizontal: spacing.md,
@@ -643,7 +745,7 @@ const styles = StyleSheet.create({
   insightValue: {
     fontSize: typography.sizes.xl,
     fontWeight: typography.weights.bold,
-    color: colors.accent,
+    color: colors.textPrimary,
     marginBottom: spacing.xs,
   },
   insightLabel: {
