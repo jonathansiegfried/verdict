@@ -1,0 +1,29 @@
+{
+  "memory": {
+    "rules": [
+      "Prefer clean, readable, maintainable code over cleverness",
+      "Use consistent formatting and naming per CLAUDE.md conventions",
+      "Avoid unnecessary abstractions - keep it simple",
+      "Be concise in explanations unless explicitly asked for depth",
+      "Focus code reviews ONLY on bugs and potential security issues",
+      "Always check useReducedMotion before adding animations",
+      "Use theme constants from constants/theme.ts",
+      "Prefer editing existing files over creating new ones",
+      "Test changes manually using npm start before marking complete"
+    ],
+    "project_context": {
+      "type": "mobile_app",
+      "framework": "expo_react_native",
+      "language": "typescript",
+      "state_management": "zustand",
+      "navigation": "expo_router"
+    }
+  },
+  "behavior": {
+    "navigate_codebase_intelligently": true,
+    "handle_large_files_without_rewriting": true,
+    "apply_minimal_precise_diffs": true,
+    "avoid_verbosity_in_reviews": true,
+    "queue_tasks_intelligently": true
+  }
+}
