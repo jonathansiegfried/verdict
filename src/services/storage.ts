@@ -2,6 +2,13 @@
 // Handles persistence of analyses, settings, and insights
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { AnalysisResult, AnalysisSummary, AppSettings, WeeklyInsights, AnalysisTemplate, TemplateSummary } from '../types';
+import { CURRENT_DATA_VERSION } from '../types';
+import {
+  migrateAnalysesArray,
+  migrateSettings,
+  wrapWithVersion,
+  detectDataVersion,
+} from './migrations';
 
 const KEYS = {
   ANALYSES: 'verdict_analyses',
@@ -9,7 +16,11 @@ const KEYS = {
   INSIGHTS: 'verdict_insights',
   DRAFT: 'verdict_draft',
   TEMPLATES: 'verdict_templates',
+  DATA_VERSION: 'verdict_data_version',
 } as const;
+
+// Track if migration has been run this session
+let migrationCompleted = false;
 
 // Default settings
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -38,7 +49,17 @@ export async function loadSettings(): Promise<AppSettings> {
     const raw = await AsyncStorage.getItem(KEYS.SETTINGS);
     if (!raw) return DEFAULT_SETTINGS;
 
-    const settings = JSON.parse(raw) as AppSettings;
+    let settings = JSON.parse(raw);
+
+    // Check if settings need migration
+    const version = detectDataVersion(settings);
+    if (version > 0 && version < CURRENT_DATA_VERSION) {
+      const result = migrateSettings(settings, version);
+      if (result.success && result.data) {
+        settings = result.data;
+        await AsyncStorage.setItem(KEYS.SETTINGS, JSON.stringify(settings));
+      }
+    }
 
     // Check if we need to reset weekly count
     const currentWeekStart = getWeekStart();
@@ -63,7 +84,32 @@ export async function loadAnalyses(): Promise<AnalysisResult[]> {
   try {
     const raw = await AsyncStorage.getItem(KEYS.ANALYSES);
     if (!raw) return [];
-    return JSON.parse(raw) as AnalysisResult[];
+
+    const parsed = JSON.parse(raw);
+
+    // Check if data needs migration
+    if (!migrationCompleted && Array.isArray(parsed)) {
+      const firstItem = parsed[0];
+      if (firstItem && detectDataVersion(firstItem) < CURRENT_DATA_VERSION) {
+        // Run migration
+        const result = migrateAnalysesArray(parsed);
+        if (result.success && result.data) {
+          // Save migrated data
+          await AsyncStorage.setItem(KEYS.ANALYSES, JSON.stringify(result.data));
+          await AsyncStorage.setItem(KEYS.DATA_VERSION, String(CURRENT_DATA_VERSION));
+          migrationCompleted = true;
+
+          if (result.warnings && result.warnings.length > 0) {
+            console.log('Migration warnings:', result.warnings);
+          }
+
+          return result.data;
+        }
+      }
+      migrationCompleted = true;
+    }
+
+    return parsed as AnalysisResult[];
   } catch {
     return [];
   }
@@ -218,7 +264,37 @@ export async function clearDraft(): Promise<void> {
 
 // Clear all data (for testing/reset)
 export async function clearAllData(): Promise<void> {
-  await AsyncStorage.multiRemove([KEYS.ANALYSES, KEYS.SETTINGS, KEYS.INSIGHTS, KEYS.DRAFT]);
+  await AsyncStorage.multiRemove([
+    KEYS.ANALYSES,
+    KEYS.SETTINGS,
+    KEYS.INSIGHTS,
+    KEYS.DRAFT,
+    KEYS.TEMPLATES,
+    KEYS.DATA_VERSION,
+  ]);
+  migrationCompleted = false;
+}
+
+// Get current stored data version
+export async function getStoredDataVersion(): Promise<number> {
+  try {
+    const version = await AsyncStorage.getItem(KEYS.DATA_VERSION);
+    return version ? parseInt(version, 10) : 1;
+  } catch {
+    return 1;
+  }
+}
+
+// Force migration (for admin/debugging)
+export async function forceMigration(): Promise<{ analyses: number; warnings: string[] }> {
+  migrationCompleted = false;
+  const analyses = await loadAnalyses();
+  const settings = await loadSettings();
+
+  return {
+    analyses: analyses.length,
+    warnings: [],
+  };
 }
 
 // Import/Export data types

@@ -4,6 +4,48 @@ import type { CommentatorStyle, EvidenceMode, OutcomeType } from '../constants/t
 // Re-export theme types for convenience
 export type { CommentatorStyle, EvidenceMode, OutcomeType } from '../constants/theme';
 
+// ============================================================================
+// DATA VERSION MANAGEMENT
+// ============================================================================
+
+/**
+ * Current data version. Increment when making breaking changes to data models.
+ *
+ * Version History:
+ * - v1: Initial release (no version field)
+ * - v2: Added takeaway field to AnalysisResult, added AnalysisTemplate
+ * - v3: Added data version tracking, normalized IDs, strict typing
+ */
+export const CURRENT_DATA_VERSION = 3;
+
+/**
+ * Minimum supported version for migration.
+ * Data below this version cannot be migrated and will be discarded.
+ */
+export const MIN_SUPPORTED_VERSION = 1;
+
+/**
+ * Versioned data envelope for storage.
+ * All data should be wrapped in this structure.
+ */
+export interface VersionedData<T> {
+  version: number;
+  data: T;
+  migratedAt?: number;  // Timestamp of last migration
+}
+
+/**
+ * Result of a migration operation.
+ */
+export interface MigrationResult<T> {
+  success: boolean;
+  data?: T;
+  fromVersion: number;
+  toVersion: number;
+  warnings?: string[];
+  error?: string;
+}
+
 // Side/Participant in an argument
 export interface Side {
   id: string;
