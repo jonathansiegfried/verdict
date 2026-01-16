@@ -142,3 +142,29 @@ export const PRO_TIER_LIMITS = {
   analysesPerWeek: Infinity,
   maxSides: 5,
 } as const;
+
+// Template for quick-starting analyses
+export interface AnalysisTemplate {
+  id: string;
+  title: string;                      // e.g., "Couple Disagreement"
+  description?: string;               // Optional description
+  sides: {
+    label: string;                    // Default label for this side
+    placeholder?: string;             // Placeholder text for input
+  }[];
+  commentatorStyle: CommentatorStyle;
+  evidenceMode: EvidenceMode;
+  createdAt: number;
+  lastUsedAt: number;
+  useCount: number;                   // Track popularity
+}
+
+// Template summary for list display
+export interface TemplateSummary {
+  id: string;
+  title: string;
+  sideCount: number;
+  commentatorStyle: CommentatorStyle;
+  lastUsedAt: number;
+  useCount: number;
+}

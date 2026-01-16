@@ -1,13 +1,14 @@
 // Storage service using AsyncStorage
 // Handles persistence of analyses, settings, and insights
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { AnalysisResult, AnalysisSummary, AppSettings, WeeklyInsights } from '../types';
+import type { AnalysisResult, AnalysisSummary, AppSettings, WeeklyInsights, AnalysisTemplate, TemplateSummary } from '../types';
 
 const KEYS = {
   ANALYSES: 'verdict_analyses',
   SETTINGS: 'verdict_settings',
   INSIGHTS: 'verdict_insights',
   DRAFT: 'verdict_draft',
+  TEMPLATES: 'verdict_templates',
 } as const;
 
 // Default settings
@@ -328,4 +329,131 @@ export async function importAnalyses(
       skipped: 0,
     };
   }
+}
+
+// ========== TEMPLATE OPERATIONS ==========
+
+// Load all templates
+export async function loadTemplates(): Promise<AnalysisTemplate[]> {
+  try {
+    const raw = await AsyncStorage.getItem(KEYS.TEMPLATES);
+    if (!raw) return getDefaultTemplates();
+    return JSON.parse(raw) as AnalysisTemplate[];
+  } catch {
+    return getDefaultTemplates();
+  }
+}
+
+// Save a new template
+export async function saveTemplate(template: AnalysisTemplate): Promise<void> {
+  const templates = await loadTemplates();
+  templates.unshift(template);
+  // Max 20 templates
+  const trimmed = templates.slice(0, 20);
+  await AsyncStorage.setItem(KEYS.TEMPLATES, JSON.stringify(trimmed));
+}
+
+// Update an existing template
+export async function updateTemplate(id: string, updates: Partial<AnalysisTemplate>): Promise<void> {
+  const templates = await loadTemplates();
+  const updated = templates.map((t) =>
+    t.id === id ? { ...t, ...updates } : t
+  );
+  await AsyncStorage.setItem(KEYS.TEMPLATES, JSON.stringify(updated));
+}
+
+// Delete a template
+export async function deleteTemplate(id: string): Promise<void> {
+  const templates = await loadTemplates();
+  const filtered = templates.filter((t) => t.id !== id);
+  await AsyncStorage.setItem(KEYS.TEMPLATES, JSON.stringify(filtered));
+}
+
+// Mark template as used (updates lastUsedAt and increments useCount)
+export async function markTemplateUsed(id: string): Promise<void> {
+  const templates = await loadTemplates();
+  const updated = templates.map((t) =>
+    t.id === id
+      ? { ...t, lastUsedAt: Date.now(), useCount: t.useCount + 1 }
+      : t
+  );
+  await AsyncStorage.setItem(KEYS.TEMPLATES, JSON.stringify(updated));
+}
+
+// Get template summaries for list display
+export async function getTemplateSummaries(): Promise<TemplateSummary[]> {
+  const templates = await loadTemplates();
+  return templates.map((t) => ({
+    id: t.id,
+    title: t.title,
+    sideCount: t.sides.length,
+    commentatorStyle: t.commentatorStyle,
+    lastUsedAt: t.lastUsedAt,
+    useCount: t.useCount,
+  }));
+}
+
+// Get recently used templates (for Quick Start)
+export async function getRecentTemplates(limit = 3): Promise<AnalysisTemplate[]> {
+  const templates = await loadTemplates();
+  // Sort by lastUsedAt descending, then by useCount
+  return templates
+    .filter((t) => t.useCount > 0)
+    .sort((a, b) => b.lastUsedAt - a.lastUsedAt)
+    .slice(0, limit);
+}
+
+// Get template by ID
+export async function getTemplateById(id: string): Promise<AnalysisTemplate | null> {
+  const templates = await loadTemplates();
+  return templates.find((t) => t.id === id) ?? null;
+}
+
+// Default starter templates
+function getDefaultTemplates(): AnalysisTemplate[] {
+  const now = Date.now();
+  return [
+    {
+      id: 'default_couple',
+      title: 'Couple Disagreement',
+      description: 'Resolve relationship conflicts fairly',
+      sides: [
+        { label: 'Partner A', placeholder: 'What is their perspective?' },
+        { label: 'Partner B', placeholder: 'What is their perspective?' },
+      ],
+      commentatorStyle: 'mediator',
+      evidenceMode: 'light',
+      createdAt: now,
+      lastUsedAt: 0,
+      useCount: 0,
+    },
+    {
+      id: 'default_work',
+      title: 'Work Debate',
+      description: 'Analyze professional disagreements',
+      sides: [
+        { label: 'Your View', placeholder: 'Your position...' },
+        { label: 'Colleague', placeholder: 'Their position...' },
+      ],
+      commentatorStyle: 'lawyer',
+      evidenceMode: 'strict',
+      createdAt: now,
+      lastUsedAt: 0,
+      useCount: 0,
+    },
+    {
+      id: 'default_family',
+      title: 'Family Discussion',
+      description: 'Navigate family dynamics',
+      sides: [
+        { label: 'Family Member 1', placeholder: 'Their view...' },
+        { label: 'Family Member 2', placeholder: 'Their view...' },
+      ],
+      commentatorStyle: 'coach',
+      evidenceMode: 'light',
+      createdAt: now,
+      lastUsedAt: 0,
+      useCount: 0,
+    },
+  ];
 }

@@ -7,6 +7,8 @@ import type {
   AppSettings,
   Side,
   WeeklyInsights,
+  AnalysisTemplate,
+  TemplateSummary,
 } from '../types';
 import type { CommentatorStyle, EvidenceMode } from '../constants/theme';
 import {
@@ -24,6 +26,14 @@ import {
   loadDraft,
   clearDraft,
   type DraftData,
+  // Templates
+  loadTemplates,
+  saveTemplate as saveTemplateToStorage,
+  updateTemplate as updateTemplateInStorage,
+  deleteTemplate as deleteTemplateFromStorage,
+  markTemplateUsed,
+  getTemplateSummaries,
+  getRecentTemplates,
 } from '../services/storage';
 import { analyzeArgument } from '../services/ai';
 import { FREE_TIER_LIMITS, PRO_TIER_LIMITS } from '../types';
@@ -50,6 +60,11 @@ interface AppState {
 
   // Insights
   weeklyInsights: WeeklyInsights | null;
+
+  // Templates
+  templates: AnalysisTemplate[];
+  templateSummaries: TemplateSummary[];
+  recentTemplates: AnalysisTemplate[];
 
   // Actions - Settings
   loadAppSettings: () => Promise<void>;
@@ -87,6 +102,14 @@ interface AppState {
 
   // Actions - Insights
   loadInsights: () => Promise<void>;
+
+  // Actions - Templates
+  loadAllTemplates: () => Promise<void>;
+  createTemplate: (template: Omit<AnalysisTemplate, 'id' | 'createdAt' | 'lastUsedAt' | 'useCount'>) => Promise<void>;
+  updateTemplate: (id: string, updates: Partial<AnalysisTemplate>) => Promise<void>;
+  deleteTemplate: (id: string) => Promise<void>;
+  useTemplate: (id: string) => Promise<void>;
+  applyTemplate: (template: AnalysisTemplate) => void;
 }
 
 function generateSideId(): string {
@@ -118,6 +141,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedAnalysis: null,
 
   weeklyInsights: null,
+
+  templates: [],
+  templateSummaries: [],
+  recentTemplates: [],
 
   // Settings actions
   loadAppSettings: async () => {
@@ -324,5 +351,55 @@ export const useAppStore = create<AppState>((set, get) => ({
   loadInsights: async () => {
     const insights = await calculateWeeklyInsights();
     set({ weeklyInsights: insights });
+  },
+
+  // Template actions
+  loadAllTemplates: async () => {
+    const templates = await loadTemplates();
+    const summaries = await getTemplateSummaries();
+    const recent = await getRecentTemplates(3);
+    set({ templates, templateSummaries: summaries, recentTemplates: recent });
+  },
+
+  createTemplate: async (templateData) => {
+    const template: AnalysisTemplate = {
+      ...templateData,
+      id: `template_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      createdAt: Date.now(),
+      lastUsedAt: 0,
+      useCount: 0,
+    };
+    await saveTemplateToStorage(template);
+    await get().loadAllTemplates();
+  },
+
+  updateTemplate: async (id, updates) => {
+    await updateTemplateInStorage(id, updates);
+    await get().loadAllTemplates();
+  },
+
+  deleteTemplate: async (id) => {
+    await deleteTemplateFromStorage(id);
+    await get().loadAllTemplates();
+  },
+
+  useTemplate: async (id) => {
+    await markTemplateUsed(id);
+    await get().loadAllTemplates();
+  },
+
+  applyTemplate: (template) => {
+    const sides: Side[] = template.sides.map((s, i) => ({
+      id: generateSideId(),
+      label: s.label,
+      content: '',
+    }));
+
+    set({
+      currentSides: sides,
+      currentCommentatorStyle: template.commentatorStyle,
+      currentEvidenceMode: template.evidenceMode,
+      currentContext: '',
+    });
   },
 }));
