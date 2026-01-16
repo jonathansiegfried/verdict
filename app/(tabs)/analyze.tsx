@@ -1,5 +1,5 @@
 // Analyze Tab - Main CTA screen to start new analysis
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -20,12 +20,13 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppStore } from '../../src/store/useAppStore';
-import { useReducedMotion, useHaptics } from '../../src/hooks';
-import { colors, spacing, typography, shadows, borderRadius } from '../../src/constants/theme';
+import { useHaptics } from '../../src/hooks';
+import { useTheme } from '../../src/context/ThemeContext';
+import { colors, typography, shadows } from '../../src/constants/theme';
 
 export default function AnalyzeTab() {
   const router = useRouter();
-  const reduceMotion = useReducedMotion();
+  const { tokens, reduceMotion } = useTheme();
   const { trigger } = useHaptics();
 
   const settings = useAppStore((s) => s.settings);
@@ -33,6 +34,58 @@ export default function AnalyzeTab() {
   const getRemainingAnalyses = useAppStore((s) => s.getRemainingAnalyses);
 
   const remainingAnalyses = getRemainingAnalyses();
+
+  // Dynamic styles based on theme tokens
+  const dynamicStyles = useMemo(() => ({
+    content: {
+      flex: 1,
+      paddingHorizontal: tokens.spacing.lg,
+    },
+    header: {
+      marginTop: tokens.spacing.xl,
+      alignItems: 'center' as const,
+    },
+    ctaSection: {
+      alignItems: 'center' as const,
+      marginTop: tokens.spacing.xxxl,
+    },
+    bigButtonContainer: {
+      width: 160,
+      height: 160,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      marginBottom: tokens.spacing.lg,
+    },
+    infoSection: {
+      marginTop: tokens.spacing.xxl,
+      alignItems: 'center' as const,
+    },
+    remainingContainer: {
+      alignItems: 'center' as const,
+      gap: tokens.spacing.sm,
+    },
+    proContainer: {
+      backgroundColor: colors.successMuted,
+      paddingHorizontal: tokens.spacing.lg,
+      paddingVertical: tokens.spacing.sm,
+      borderRadius: tokens.radius.full,
+    },
+    featuresSection: {
+      marginTop: 'auto' as const,
+      marginBottom: tokens.spacing.xxl,
+      gap: tokens.spacing.md,
+    },
+    featureItem: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      backgroundColor: colors.surface,
+      borderRadius: tokens.radius.lg,
+      padding: tokens.spacing.md,
+      gap: tokens.spacing.md,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+    },
+  }), [tokens]);
 
   // Pulse animation for the big button
   const pulseAnim = useSharedValue(0);
@@ -85,14 +138,16 @@ export default function AnalyzeTab() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.content}>
+      <View style={dynamicStyles.content}>
         {/* Header */}
         <Animated.View
           entering={reduceMotion ? undefined : FadeInDown.delay(0).duration(400)}
-          style={styles.header}
+          style={dynamicStyles.header}
         >
-          <Text style={styles.title}>New Analysis</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.title, { fontSize: tokens.typography.xxl, marginBottom: tokens.spacing.xs }]}>
+            New Analysis
+          </Text>
+          <Text style={[styles.subtitle, { fontSize: tokens.typography.base }]}>
             Get an AI-powered verdict on any argument
           </Text>
         </Animated.View>
@@ -100,9 +155,9 @@ export default function AnalyzeTab() {
         {/* Big CTA Button */}
         <Animated.View
           entering={reduceMotion ? undefined : FadeInDown.delay(100).duration(400)}
-          style={styles.ctaSection}
+          style={dynamicStyles.ctaSection}
         >
-          <View style={styles.bigButtonContainer}>
+          <View style={dynamicStyles.bigButtonContainer}>
             {/* Glow effect behind button */}
             <Animated.View style={[styles.buttonGlow, glowStyle]} />
 
@@ -121,27 +176,29 @@ export default function AnalyzeTab() {
             </Pressable>
           </View>
 
-          <Text style={styles.ctaLabel}>Start Analysis</Text>
-          <Text style={styles.ctaHint}>Tap to begin</Text>
+          <Text style={[styles.ctaLabel, { fontSize: tokens.typography.lg, marginBottom: tokens.spacing.xs }]}>
+            Start Analysis
+          </Text>
+          <Text style={[styles.ctaHint, { fontSize: tokens.typography.sm }]}>Tap to begin</Text>
         </Animated.View>
 
         {/* Remaining analyses indicator */}
         <Animated.View
           entering={reduceMotion ? undefined : FadeInDown.delay(200).duration(400)}
-          style={styles.infoSection}
+          style={dynamicStyles.infoSection}
         >
           {!settings.isPro ? (
-            <View style={styles.remainingContainer}>
-              <Text style={styles.remainingText}>
+            <View style={dynamicStyles.remainingContainer}>
+              <Text style={[styles.remainingText, { fontSize: tokens.typography.sm }]}>
                 {remainingAnalyses} free {remainingAnalyses === 1 ? 'analysis' : 'analyses'} left this week
               </Text>
               <Pressable onPress={() => router.push('/upgrade')}>
-                <Text style={styles.upgradeLink}>Upgrade to Pro →</Text>
+                <Text style={[styles.upgradeLink, { fontSize: tokens.typography.sm }]}>Upgrade to Pro →</Text>
               </Pressable>
             </View>
           ) : (
-            <View style={styles.proContainer}>
-              <Text style={styles.proText}>Unlimited analyses with Pro</Text>
+            <View style={dynamicStyles.proContainer}>
+              <Text style={[styles.proText, { fontSize: tokens.typography.sm }]}>Unlimited analyses with Pro</Text>
             </View>
           )}
         </Animated.View>
@@ -149,27 +206,27 @@ export default function AnalyzeTab() {
         {/* Features */}
         <Animated.View
           entering={reduceMotion ? undefined : FadeInDown.delay(300).duration(400)}
-          style={styles.featuresSection}
+          style={dynamicStyles.featuresSection}
         >
-          <View style={styles.featureItem}>
+          <View style={dynamicStyles.featureItem}>
             <Text style={styles.featureIcon}>⚖️</Text>
             <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Neutral Analysis</Text>
-              <Text style={styles.featureDesc}>Unbiased evaluation of all sides</Text>
+              <Text style={[styles.featureTitle, { fontSize: tokens.typography.base }]}>Neutral Analysis</Text>
+              <Text style={[styles.featureDesc, { fontSize: tokens.typography.sm }]}>Unbiased evaluation of all sides</Text>
             </View>
           </View>
-          <View style={styles.featureItem}>
+          <View style={dynamicStyles.featureItem}>
             <Text style={styles.featureIcon}>🎯</Text>
             <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Clear Verdicts</Text>
-              <Text style={styles.featureDesc}>Win or peace - you decide the goal</Text>
+              <Text style={[styles.featureTitle, { fontSize: tokens.typography.base }]}>Clear Verdicts</Text>
+              <Text style={[styles.featureDesc, { fontSize: tokens.typography.sm }]}>Win or peace - you decide the goal</Text>
             </View>
           </View>
-          <View style={styles.featureItem}>
+          <View style={dynamicStyles.featureItem}>
             <Text style={styles.featureIcon}>🔒</Text>
             <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Private & Local</Text>
-              <Text style={styles.featureDesc}>Your data stays on your device</Text>
+              <Text style={[styles.featureTitle, { fontSize: tokens.typography.base }]}>Private & Local</Text>
+              <Text style={[styles.featureDesc, { fontSize: tokens.typography.sm }]}>Your data stays on your device</Text>
             </View>
           </View>
         </Animated.View>
@@ -183,35 +240,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-  },
-  header: {
-    marginTop: spacing.xl,
-    alignItems: 'center',
-  },
   title: {
-    fontSize: typography.sizes.xxl,
     fontWeight: typography.weights.bold,
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
   },
   subtitle: {
-    fontSize: typography.sizes.base,
     color: colors.textSecondary,
     textAlign: 'center',
-  },
-  ctaSection: {
-    alignItems: 'center',
-    marginTop: spacing.xxxl,
-  },
-  bigButtonContainer: {
-    width: 160,
-    height: 160,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
   },
   buttonGlow: {
     position: 'absolute',
@@ -237,57 +272,22 @@ const styles = StyleSheet.create({
     marginTop: -4,
   },
   ctaLabel: {
-    fontSize: typography.sizes.lg,
     fontWeight: typography.weights.semibold,
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
   },
   ctaHint: {
-    fontSize: typography.sizes.sm,
     color: colors.textTertiary,
   },
-  infoSection: {
-    marginTop: spacing.xxl,
-    alignItems: 'center',
-  },
-  remainingContainer: {
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
   remainingText: {
-    fontSize: typography.sizes.sm,
     color: colors.textTertiary,
   },
   upgradeLink: {
-    fontSize: typography.sizes.sm,
     color: colors.accent,
     fontWeight: typography.weights.medium,
   },
-  proContainer: {
-    backgroundColor: colors.successMuted,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-  },
   proText: {
-    fontSize: typography.sizes.sm,
     color: colors.success,
     fontWeight: typography.weights.medium,
-  },
-  featuresSection: {
-    marginTop: 'auto',
-    marginBottom: spacing.xxl,
-    gap: spacing.md,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    gap: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
   },
   featureIcon: {
     fontSize: 24,
@@ -296,13 +296,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   featureTitle: {
-    fontSize: typography.sizes.base,
     fontWeight: typography.weights.medium,
     color: colors.textPrimary,
     marginBottom: 2,
   },
   featureDesc: {
-    fontSize: typography.sizes.sm,
     color: colors.textSecondary,
   },
 });

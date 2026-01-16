@@ -1,5 +1,5 @@
 // Home Tab - Overview, recent analyses, quick stats
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -20,12 +20,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Card, PressableScale } from '../../src/components';
 import { useAppStore } from '../../src/store/useAppStore';
-import { useReducedMotion } from '../../src/hooks';
-import { colors, spacing, typography, borderRadius } from '../../src/constants/theme';
+import { useTheme } from '../../src/context/ThemeContext';
+import { colors, typography } from '../../src/constants/theme';
 
 export default function HomeTab() {
   const router = useRouter();
-  const reduceMotion = useReducedMotion();
+  const { tokens, reduceMotion } = useTheme();
 
   const analysisSummaries = useAppStore((s) => s.analysisSummaries);
   const settings = useAppStore((s) => s.settings);
@@ -35,6 +35,57 @@ export default function HomeTab() {
 
   const remainingAnalyses = getRemainingAnalyses();
   const recentAnalyses = analysisSummaries.slice(0, 3);
+
+  // Dynamic styles based on theme tokens
+  const dynamicStyles = useMemo(() => ({
+    scrollContent: {
+      paddingHorizontal: tokens.spacing.lg,
+      paddingBottom: tokens.spacing.xxxl,
+    },
+    header: {
+      marginTop: tokens.spacing.xl,
+      marginBottom: tokens.spacing.xxl,
+    },
+    statsRow: {
+      flexDirection: 'row' as const,
+      gap: tokens.spacing.md,
+    },
+    statCard: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: tokens.radius.lg,
+      padding: tokens.spacing.lg,
+      alignItems: 'center' as const,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+    },
+    sectionHeader: {
+      flexDirection: 'row' as const,
+      justifyContent: 'space-between' as const,
+      alignItems: 'center' as const,
+      marginBottom: tokens.spacing.md,
+    },
+    recentList: {
+      gap: tokens.spacing.md,
+    },
+    emptyStateCard: {
+      backgroundColor: colors.surface,
+      borderRadius: tokens.radius.xl,
+      padding: tokens.spacing.xxxl,
+      alignItems: 'center' as const,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+    },
+    proCard: {
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: tokens.radius.lg,
+      padding: tokens.spacing.lg,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      borderWidth: 1,
+      borderColor: colors.accent,
+    },
+  }), [tokens]);
 
   // Load insights on mount
   useEffect(() => {
@@ -83,40 +134,44 @@ export default function HomeTab() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={dynamicStyles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <Animated.View
           entering={reduceMotion ? undefined : FadeInDown.delay(0).duration(400)}
-          style={styles.header}
+          style={dynamicStyles.header}
         >
-          <Text style={styles.greeting}>Welcome back</Text>
-          <Text style={styles.title}>Verdict+</Text>
+          <Text style={[styles.greeting, { fontSize: tokens.typography.sm, marginBottom: tokens.spacing.xs }]}>
+            Welcome back
+          </Text>
+          <Text style={[styles.title, { fontSize: tokens.typography.xxxl }]}>Verdict+</Text>
         </Animated.View>
 
         {/* Stats Cards */}
         <Animated.View
           entering={reduceMotion ? undefined : FadeInDown.delay(100).duration(400)}
-          style={styles.statsSection}
+          style={[styles.statsSection, { marginBottom: tokens.spacing.xxl }]}
         >
-          <View style={styles.statsRow}>
-            <Animated.View style={[styles.statCard, pulseStyle]}>
-              <Text style={styles.statValue}>
+          <View style={dynamicStyles.statsRow}>
+            <Animated.View style={[dynamicStyles.statCard, pulseStyle]}>
+              <Text style={[styles.statValue, { fontSize: tokens.typography.xxl, marginBottom: tokens.spacing.xs }]}>
                 {weeklyInsights?.totalAnalyses || 0}
               </Text>
-              <Text style={styles.statLabel}>This week</Text>
+              <Text style={[styles.statLabel, { fontSize: tokens.typography.xs }]}>This week</Text>
             </Animated.View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{analysisSummaries.length}</Text>
-              <Text style={styles.statLabel}>Total</Text>
+            <View style={dynamicStyles.statCard}>
+              <Text style={[styles.statValue, { fontSize: tokens.typography.xxl, marginBottom: tokens.spacing.xs }]}>
+                {analysisSummaries.length}
+              </Text>
+              <Text style={[styles.statLabel, { fontSize: tokens.typography.xs }]}>Total</Text>
             </View>
             {!settings.isPro && (
-              <View style={styles.statCard}>
-                <Text style={[styles.statValue, styles.statValueAccent]}>
+              <View style={dynamicStyles.statCard}>
+                <Text style={[styles.statValue, styles.statValueAccent, { fontSize: tokens.typography.xxl, marginBottom: tokens.spacing.xs }]}>
                   {remainingAnalyses}
                 </Text>
-                <Text style={styles.statLabel}>Remaining</Text>
+                <Text style={[styles.statLabel, { fontSize: tokens.typography.xs }]}>Remaining</Text>
               </View>
             )}
           </View>
@@ -126,16 +181,16 @@ export default function HomeTab() {
         {recentAnalyses.length > 0 ? (
           <Animated.View
             entering={reduceMotion ? undefined : FadeInDown.delay(200).duration(400)}
-            style={styles.recentSection}
+            style={[styles.recentSection, { marginBottom: tokens.spacing.xxl }]}
           >
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recent</Text>
+            <View style={dynamicStyles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { fontSize: tokens.typography.lg }]}>Recent</Text>
               <PressableScale onPress={() => router.push('/(tabs)/history')}>
-                <Text style={styles.viewAllLink}>View all</Text>
+                <Text style={[styles.viewAllLink, { fontSize: tokens.typography.sm }]}>View all</Text>
               </PressableScale>
             </View>
 
-            <View style={styles.recentList}>
+            <View style={dynamicStyles.recentList}>
               {recentAnalyses.map((analysis) => (
                 <Card
                   key={analysis.id}
@@ -143,14 +198,14 @@ export default function HomeTab() {
                   padding="md"
                   style={styles.recentCard}
                 >
-                  <Text style={styles.recentHeadline} numberOfLines={2}>
+                  <Text style={[styles.recentHeadline, { fontSize: tokens.typography.base, marginBottom: tokens.spacing.sm }]} numberOfLines={2}>
                     {analysis.verdictHeadline}
                   </Text>
                   <View style={styles.recentMeta}>
-                    <Text style={styles.recentParticipants}>
+                    <Text style={[styles.recentParticipants, { fontSize: tokens.typography.sm }]}>
                       {analysis.participantLabels.join(' vs ')}
                     </Text>
-                    <Text style={styles.recentDate}>
+                    <Text style={[styles.recentDate, { fontSize: tokens.typography.xs }]}>
                       {formatDate(analysis.createdAt)}
                     </Text>
                   </View>
@@ -161,12 +216,14 @@ export default function HomeTab() {
         ) : (
           <Animated.View
             entering={reduceMotion ? undefined : FadeInDown.delay(200).duration(400)}
-            style={styles.emptySection}
+            style={[styles.emptySection, { marginBottom: tokens.spacing.xxl }]}
           >
-            <View style={styles.emptyStateCard}>
-              <Text style={styles.emptyIcon}>📋</Text>
-              <Text style={styles.emptyTitle}>No analyses yet</Text>
-              <Text style={styles.emptySubtitle}>
+            <View style={dynamicStyles.emptyStateCard}>
+              <Text style={[styles.emptyIcon, { marginBottom: tokens.spacing.lg }]}>📋</Text>
+              <Text style={[styles.emptyTitle, { fontSize: tokens.typography.lg, marginBottom: tokens.spacing.sm }]}>
+                No analyses yet
+              </Text>
+              <Text style={[styles.emptySubtitle, { fontSize: tokens.typography.sm }]}>
                 Tap the Analyze tab to settle your first argument
               </Text>
             </View>
@@ -178,14 +235,16 @@ export default function HomeTab() {
           <Animated.View
             entering={reduceMotion ? undefined : FadeInDown.delay(300).duration(400)}
           >
-            <PressableScale onPress={() => router.push('/upgrade')} style={styles.proCard}>
+            <PressableScale onPress={() => router.push('/upgrade')} style={dynamicStyles.proCard}>
               <View style={styles.proContent}>
-                <Text style={styles.proTitle}>Upgrade to Pro</Text>
-                <Text style={styles.proSubtitle}>
+                <Text style={[styles.proTitle, { fontSize: tokens.typography.base, marginBottom: tokens.spacing.xs }]}>
+                  Upgrade to Pro
+                </Text>
+                <Text style={[styles.proSubtitle, { fontSize: tokens.typography.sm }]}>
                   Unlimited analyses, more sides, premium features
                 </Text>
               </View>
-              <Text style={styles.proArrow}>→</Text>
+              <Text style={[styles.proArrow, { fontSize: tokens.typography.xl }]}>→</Text>
             </PressableScale>
           </Animated.View>
         )}
@@ -202,84 +261,40 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxxl,
-  },
-  header: {
-    marginTop: spacing.xl,
-    marginBottom: spacing.xxl,
-  },
   greeting: {
-    fontSize: typography.sizes.sm,
     color: colors.textTertiary,
-    marginBottom: spacing.xs,
   },
   title: {
-    fontSize: typography.sizes.xxxl,
     fontWeight: typography.weights.bold,
     color: colors.textPrimary,
   },
-  statsSection: {
-    marginBottom: spacing.xxl,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-  },
+  statsSection: {},
   statValue: {
-    fontSize: typography.sizes.xxl,
     fontWeight: typography.weights.bold,
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
   },
   statValueAccent: {
     color: colors.accent,
   },
   statLabel: {
-    fontSize: typography.sizes.xs,
     color: colors.textSecondary,
   },
-  recentSection: {
-    marginBottom: spacing.xxl,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
+  recentSection: {},
   sectionTitle: {
-    fontSize: typography.sizes.lg,
     fontWeight: typography.weights.semibold,
     color: colors.textPrimary,
   },
   viewAllLink: {
-    fontSize: typography.sizes.sm,
     color: colors.accent,
     fontWeight: typography.weights.medium,
-  },
-  recentList: {
-    gap: spacing.md,
   },
   recentCard: {
     marginBottom: 0,
   },
   recentHeadline: {
-    fontSize: typography.sizes.base,
     fontWeight: typography.weights.medium,
     color: colors.textPrimary,
-    marginBottom: spacing.sm,
-    lineHeight: typography.sizes.base * typography.lineHeights.normal,
+    lineHeight: 22,
   },
   recentMeta: {
     flexDirection: 'row',
@@ -287,63 +302,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   recentParticipants: {
-    fontSize: typography.sizes.sm,
     color: colors.textSecondary,
   },
   recentDate: {
-    fontSize: typography.sizes.xs,
     color: colors.textTertiary,
   },
-  emptySection: {
-    marginBottom: spacing.xxl,
-  },
-  emptyStateCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xxxl,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-  },
+  emptySection: {},
   emptyIcon: {
     fontSize: 48,
-    marginBottom: spacing.lg,
   },
   emptyTitle: {
-    fontSize: typography.sizes.lg,
     fontWeight: typography.weights.semibold,
     color: colors.textPrimary,
-    marginBottom: spacing.sm,
   },
   emptySubtitle: {
-    fontSize: typography.sizes.sm,
     color: colors.textSecondary,
     textAlign: 'center',
-  },
-  proCard: {
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.accent,
   },
   proContent: {
     flex: 1,
   },
   proTitle: {
-    fontSize: typography.sizes.base,
     fontWeight: typography.weights.semibold,
     color: colors.accent,
-    marginBottom: spacing.xs,
   },
   proSubtitle: {
-    fontSize: typography.sizes.sm,
     color: colors.textSecondary,
   },
   proArrow: {
-    fontSize: typography.sizes.xl,
     color: colors.accent,
   },
 });

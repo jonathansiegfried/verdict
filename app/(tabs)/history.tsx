@@ -20,8 +20,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Card, PressableScale } from '../../src/components';
 import { useAppStore } from '../../src/store/useAppStore';
-import { useHaptics, useReducedMotion } from '../../src/hooks';
-import { colors, spacing, typography, borderRadius } from '../../src/constants/theme';
+import { useHaptics } from '../../src/hooks';
+import { useTheme } from '../../src/context/ThemeContext';
+import { colors, typography } from '../../src/constants/theme';
 import type { AnalysisSummary } from '../../src/types';
 
 interface GroupedAnalyses {
@@ -32,7 +33,7 @@ interface GroupedAnalyses {
 export default function HistoryTab() {
   const router = useRouter();
   const { trigger } = useHaptics();
-  const reduceMotion = useReducedMotion();
+  const { tokens, reduceMotion } = useTheme();
 
   const analysisSummaries = useAppStore((s) => s.analysisSummaries);
   const deleteAnalysis = useAppStore((s) => s.deleteAnalysis);
@@ -43,6 +44,80 @@ export default function HistoryTab() {
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameText, setRenameText] = useState('');
+
+  // Dynamic styles based on theme tokens
+  const dynamicStyles = useMemo(() => ({
+    header: {
+      paddingHorizontal: tokens.spacing.lg,
+      paddingTop: tokens.spacing.xl,
+      paddingBottom: tokens.spacing.md,
+    },
+    scrollContent: {
+      paddingHorizontal: tokens.spacing.lg,
+      paddingTop: tokens.spacing.md,
+      paddingBottom: tokens.spacing.xxxl,
+    },
+    insightCard: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: tokens.radius.lg,
+      padding: tokens.spacing.lg,
+      alignItems: 'center' as const,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+    },
+    emptyStateCard: {
+      backgroundColor: colors.surface,
+      borderRadius: tokens.radius.xl,
+      padding: tokens.spacing.xxxl,
+      alignItems: 'center' as const,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+    },
+    emptyButton: {
+      backgroundColor: colors.accent,
+      paddingHorizontal: tokens.spacing.xl,
+      paddingVertical: tokens.spacing.md,
+      borderRadius: tokens.radius.full,
+    },
+    styleTag: {
+      backgroundColor: colors.accent,
+      paddingHorizontal: tokens.spacing.sm,
+      paddingVertical: tokens.spacing.xs,
+      borderRadius: tokens.radius.sm,
+    },
+    tag: {
+      backgroundColor: colors.backgroundTertiary,
+      paddingHorizontal: tokens.spacing.sm,
+      paddingVertical: tokens.spacing.xs,
+      borderRadius: tokens.radius.sm,
+    },
+    actionSheet: {
+      backgroundColor: colors.backgroundSecondary,
+      borderTopLeftRadius: tokens.radius.xl,
+      borderTopRightRadius: tokens.radius.xl,
+      width: '100%' as const,
+      paddingBottom: tokens.spacing.xxxl,
+      paddingTop: tokens.spacing.md,
+    },
+    renameModal: {
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: tokens.radius.xl,
+      padding: tokens.spacing.xl,
+      width: '90%',
+      maxWidth: 400,
+    },
+    renameInput: {
+      backgroundColor: colors.surface,
+      borderRadius: tokens.radius.md,
+      padding: tokens.spacing.md,
+      fontSize: tokens.typography.base,
+      color: colors.textPrimary,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      marginBottom: tokens.spacing.lg,
+    },
+  }), [tokens]);
 
   // Load insights on mount
   React.useEffect(() => {
