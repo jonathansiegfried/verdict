@@ -138,6 +138,8 @@ export function EmptyState({
               borderRadius: tokens.radius.full,
             },
           ]}
+          accessibilityLabel={actionLabel}
+          accessibilityRole="button"
         >
           <Text style={[styles.actionButtonText, { fontSize: tokens.typography.base }]}>
             {actionLabel}

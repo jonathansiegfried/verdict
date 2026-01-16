@@ -1,7 +1,7 @@
 // PressableScale - Base pressable component with scale animation
 // Used as foundation for other interactive components
 import React, { useCallback } from 'react';
-import { StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import { StyleSheet, ViewStyle, StyleProp, AccessibilityRole } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -26,6 +26,9 @@ interface PressableScaleProps {
   style?: StyleProp<ViewStyle>;
   hapticOnPress?: boolean;
   hitSlop?: number;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  accessibilityRole?: AccessibilityRole;
 }
 
 export function PressableScale({
@@ -37,6 +40,9 @@ export function PressableScale({
   style,
   hapticOnPress = true,
   hitSlop = 8,
+  accessibilityLabel,
+  accessibilityHint,
+  accessibilityRole = 'button',
 }: PressableScaleProps) {
   const reduceMotion = useReducedMotion();
   const { trigger } = useHaptics();
@@ -95,6 +101,13 @@ export function PressableScale({
       <Animated.View
         style={[styles.container, style, animatedStyle]}
         hitSlop={{ top: hitSlop, bottom: hitSlop, left: hitSlop, right: hitSlop }}
+        accessible={true}
+        accessibilityRole={accessibilityRole}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={{
+          disabled: disabled,
+        }}
       >
         {children}
       </Animated.View>

@@ -196,7 +196,16 @@ export function PrimaryButton({
 
   return (
     <GestureDetector gesture={gesture}>
-      <Animated.View style={[styles.container, buttonAnimatedStyle, glowAnimatedStyle]}>
+      <Animated.View
+        style={[styles.container, buttonAnimatedStyle, glowAnimatedStyle]}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{
+          disabled: disabled,
+          busy: loading,
+        }}
+      >
         {variant === 'gradient' ? (
           <LinearGradient
             colors={[colors.gradientStart, colors.gradientEnd]}

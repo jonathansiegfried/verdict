@@ -153,21 +153,33 @@ export default function HomeTab() {
           entering={reduceMotion ? undefined : FadeInDown.delay(100).duration(400)}
           style={[styles.statsSection, { marginBottom: tokens.spacing.xxl }]}
         >
-          <View style={dynamicStyles.statsRow}>
-            <Animated.View style={[dynamicStyles.statCard, pulseStyle]}>
+          <View style={dynamicStyles.statsRow} accessibilityRole="summary">
+            <Animated.View
+              style={[dynamicStyles.statCard, pulseStyle]}
+              accessible={true}
+              accessibilityLabel={`${weeklyInsights?.totalAnalyses || 0} analyses this week`}
+            >
               <Text style={[styles.statValue, { fontSize: tokens.typography.xxl, marginBottom: tokens.spacing.xs }]}>
                 {weeklyInsights?.totalAnalyses || 0}
               </Text>
               <Text style={[styles.statLabel, { fontSize: tokens.typography.xs }]}>This week</Text>
             </Animated.View>
-            <View style={dynamicStyles.statCard}>
+            <View
+              style={dynamicStyles.statCard}
+              accessible={true}
+              accessibilityLabel={`${analysisSummaries.length} total analyses`}
+            >
               <Text style={[styles.statValue, { fontSize: tokens.typography.xxl, marginBottom: tokens.spacing.xs }]}>
                 {analysisSummaries.length}
               </Text>
               <Text style={[styles.statLabel, { fontSize: tokens.typography.xs }]}>Total</Text>
             </View>
             {!settings.isPro && (
-              <View style={dynamicStyles.statCard}>
+              <View
+                style={dynamicStyles.statCard}
+                accessible={true}
+                accessibilityLabel={`${remainingAnalyses} analyses remaining this week`}
+              >
                 <Text style={[styles.statValue, styles.statValueAccent, { fontSize: tokens.typography.xxl, marginBottom: tokens.spacing.xs }]}>
                   {remainingAnalyses}
                 </Text>
@@ -185,7 +197,11 @@ export default function HomeTab() {
           >
             <View style={dynamicStyles.sectionHeader}>
               <Text style={[styles.sectionTitle, { fontSize: tokens.typography.lg }]}>Recent</Text>
-              <PressableScale onPress={() => router.push('/(tabs)/history')}>
+              <PressableScale
+                onPress={() => router.push('/(tabs)/history')}
+                accessibilityLabel="View all analyses"
+                accessibilityHint="Opens the history tab"
+              >
                 <Text style={[styles.viewAllLink, { fontSize: tokens.typography.sm }]}>View all</Text>
               </PressableScale>
             </View>
@@ -197,6 +213,8 @@ export default function HomeTab() {
                   onPress={() => handleOpenAnalysis(analysis.id)}
                   padding="md"
                   style={styles.recentCard}
+                  accessibilityLabel={`${analysis.verdictHeadline}. ${analysis.participantLabels.join(' versus ')}. ${formatDate(analysis.createdAt)}`}
+                  accessibilityHint="Double tap to view analysis details"
                 >
                   <Text style={[styles.recentHeadline, { fontSize: tokens.typography.base, marginBottom: tokens.spacing.sm }]} numberOfLines={2}>
                     {analysis.verdictHeadline}
@@ -230,7 +248,12 @@ export default function HomeTab() {
           <Animated.View
             entering={reduceMotion ? undefined : FadeInDown.delay(300).duration(400)}
           >
-            <PressableScale onPress={() => router.push('/upgrade')} style={dynamicStyles.proCard}>
+            <PressableScale
+              onPress={() => router.push('/upgrade')}
+              style={dynamicStyles.proCard}
+              accessibilityLabel="Upgrade to Pro. Unlimited analyses, more sides, premium features"
+              accessibilityHint="Double tap to view upgrade options"
+            >
               <View style={styles.proContent}>
                 <Text style={[styles.proTitle, { fontSize: tokens.typography.base, marginBottom: tokens.spacing.xs }]}>
                   Upgrade to Pro
@@ -239,7 +262,7 @@ export default function HomeTab() {
                   Unlimited analyses, more sides, premium features
                 </Text>
               </View>
-              <Text style={[styles.proArrow, { fontSize: tokens.typography.xl }]}>→</Text>
+              <Text style={[styles.proArrow, { fontSize: tokens.typography.xl }]} importantForAccessibility="no">→</Text>
             </PressableScale>
           </Animated.View>
         )}

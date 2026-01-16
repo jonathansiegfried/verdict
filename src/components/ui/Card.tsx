@@ -13,6 +13,8 @@ interface CardProps {
   style?: StyleProp<ViewStyle>;
   variant?: 'default' | 'elevated' | 'outline' | 'glass';
   padding?: 'none' | 'sm' | 'md' | 'lg';
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 export function Card({
@@ -22,6 +24,8 @@ export function Card({
   style,
   variant = 'default',
   padding = 'md',
+  accessibilityLabel,
+  accessibilityHint,
 }: CardProps) {
   const { tokens, getCardStyle } = useTheme();
 
@@ -57,6 +61,8 @@ export function Card({
         onLongPress={onLongPress}
         scaleValue={0.98}
         style={cardStyle}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityHint={accessibilityHint}
       >
         {children}
       </PressableScale>
