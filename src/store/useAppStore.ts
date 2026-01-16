@@ -215,8 +215,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentAnalysis: null,
       analysisError: null,
     });
-    // Clear any saved draft when resetting
-    clearDraft().catch(() => {});
+    // Note: Don't clear draft here - let users restore on input screen
+    // Draft is only cleared when analysis starts or user explicitly discards
   },
 
   // Draft actions

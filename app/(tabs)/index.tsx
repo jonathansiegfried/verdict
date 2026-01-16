@@ -1,5 +1,5 @@
 // Home Tab - Overview, recent analyses, quick stats
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -21,12 +21,18 @@ import Animated, {
 import { Card, PressableScale, EmptyState } from '../../src/components';
 import { useAppStore } from '../../src/store/useAppStore';
 import { useTheme } from '../../src/context/ThemeContext';
-import { colors, typography } from '../../src/constants/theme';
+import { useHaptics } from '../../src/hooks';
+import { colors, typography, spacing, borderRadius } from '../../src/constants/theme';
 import type { AnalysisTemplate } from '../../src/types';
+import type { DraftData } from '../../src/services/storage';
 
 export default function HomeTab() {
   const router = useRouter();
   const { tokens, reduceMotion } = useTheme();
+  const { trigger } = useHaptics();
+
+  // Draft state
+  const [savedDraft, setSavedDraft] = useState<DraftData | null>(null);
 
   const analysisSummaries = useAppStore((s) => s.analysisSummaries);
   const settings = useAppStore((s) => s.settings);
@@ -40,6 +46,11 @@ export default function HomeTab() {
   const loadAllTemplates = useAppStore((s) => s.loadAllTemplates);
   const applyTemplate = useAppStore((s) => s.applyTemplate);
   const useTemplate = useAppStore((s) => s.useTemplate);
+
+  // Draft
+  const loadSavedDraft = useAppStore((s) => s.loadSavedDraft);
+  const clearSavedDraft = useAppStore((s) => s.clearSavedDraft);
+  const restoreDraft = useAppStore((s) => s.restoreDraft);
 
   const remainingAnalyses = getRemainingAnalyses();
   const recentAnalyses = analysisSummaries.slice(0, 3);
@@ -95,11 +106,35 @@ export default function HomeTab() {
     },
   }), [tokens]);
 
-  // Load insights and templates on mount
+  // Load insights, templates, and check for drafts on mount
   useEffect(() => {
     loadInsights();
     loadAllTemplates();
-  }, [loadInsights, loadAllTemplates]);
+
+    // Check for saved draft
+    const checkDraft = async () => {
+      const draft = await loadSavedDraft();
+      if (draft) {
+        setSavedDraft(draft);
+      }
+    };
+    checkDraft();
+  }, [loadInsights, loadAllTemplates, loadSavedDraft]);
+
+  // Draft handlers
+  const handleResumeDraft = useCallback(() => {
+    if (!savedDraft) return;
+    trigger('light');
+    restoreDraft(savedDraft);
+    setSavedDraft(null);
+    router.push('/input');
+  }, [savedDraft, restoreDraft, router, trigger]);
+
+  const handleDiscardDraft = useCallback(async () => {
+    trigger('light');
+    await clearSavedDraft();
+    setSavedDraft(null);
+  }, [clearSavedDraft, trigger]);
 
   // Templates to show in Quick Start: recent if available, otherwise defaults
   const quickStartTemplates = recentTemplates.length > 0
@@ -150,6 +185,17 @@ export default function HomeTab() {
     return date.toLocaleDateString();
   };
 
+  const formatDraftTime = (timestamp: number) => {
+    const now = Date.now();
+    const diffMinutes = Math.floor((now - timestamp) / (1000 * 60));
+
+    if (diffMinutes < 1) return 'just now';
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return 'yesterday';
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
@@ -167,6 +213,40 @@ export default function HomeTab() {
           </Text>
           <Text style={[styles.title, { fontSize: tokens.typography.xxxl }]}>Verdict+</Text>
         </Animated.View>
+
+        {/* Draft Banner */}
+        {savedDraft && (
+          <Animated.View
+            entering={reduceMotion ? undefined : FadeInDown.delay(50).duration(300)}
+            style={styles.draftBanner}
+          >
+            <View style={styles.draftBannerContent}>
+              <Text style={styles.draftBannerIcon}>📝</Text>
+              <View style={styles.draftBannerText}>
+                <Text style={styles.draftBannerTitle}>Unsaved Draft</Text>
+                <Text style={styles.draftBannerSubtitle}>
+                  {savedDraft.sides.length} sides • saved {formatDraftTime(savedDraft.savedAt)}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.draftBannerActions}>
+              <PressableScale
+                onPress={handleDiscardDraft}
+                style={styles.draftDiscardButton}
+                accessibilityLabel="Discard draft"
+              >
+                <Text style={styles.draftDiscardText}>Discard</Text>
+              </PressableScale>
+              <PressableScale
+                onPress={handleResumeDraft}
+                style={styles.draftResumeButton}
+                accessibilityLabel="Resume draft"
+              >
+                <Text style={styles.draftResumeText}>Resume</Text>
+              </PressableScale>
+            </View>
+          </Animated.View>
+        )}
 
         {/* Stats Cards */}
         <Animated.View
@@ -347,6 +427,64 @@ const styles = StyleSheet.create({
   },
   greeting: {
     color: colors.textTertiary,
+  },
+  draftBanner: {
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  draftBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  draftBannerIcon: {
+    fontSize: 24,
+    marginRight: spacing.md,
+  },
+  draftBannerText: {
+    flex: 1,
+  },
+  draftBannerTitle: {
+    fontSize: typography.sizes.base,
+    fontWeight: typography.weights.semibold,
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  draftBannerSubtitle: {
+    fontSize: typography.sizes.sm,
+    color: colors.textSecondary,
+  },
+  draftBannerActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  draftDiscardButton: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+  },
+  draftDiscardText: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.medium,
+    color: colors.textSecondary,
+  },
+  draftResumeButton: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+  },
+  draftResumeText: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.semibold,
+    color: colors.textPrimary,
   },
   title: {
     fontWeight: typography.weights.bold,
