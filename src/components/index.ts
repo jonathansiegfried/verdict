@@ -17,6 +17,7 @@ export {
   SkeletonVerdictHeader,
 } from './Skeleton';
 export { AnalysisCard } from './AnalysisCard';
+export { ErrorBoundary, InlineFallback, withErrorBoundary } from './ErrorBoundary';
 
 // Primitives - Core visual building blocks
 export { Spacer, Divider, IconWrapper, SectionHeader } from './primitives';
