@@ -47,6 +47,10 @@ export default function HistoryTab() {
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameText, setRenameText] = useState('');
 
+  // Compare mode state
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareSelection, setCompareSelection] = useState<string[]>([]);
+
   // Dynamic styles based on theme tokens
   const dynamicStyles = useMemo(() => ({
     header: {
@@ -240,6 +244,45 @@ export default function HistoryTab() {
     });
   };
 
+  // Compare mode handlers
+  const toggleCompareMode = useCallback(() => {
+    setCompareMode((prev) => !prev);
+    setCompareSelection([]);
+    trigger('light');
+  }, [trigger]);
+
+  const toggleCompareSelection = useCallback((id: string) => {
+    setCompareSelection((prev) => {
+      if (prev.includes(id)) {
+        return prev.filter((i) => i !== id);
+      }
+      // Limit to 3 items for comparison
+      if (prev.length >= 3) {
+        trigger('warning');
+        return prev;
+      }
+      trigger('light');
+      return [...prev, id];
+    });
+  }, [trigger]);
+
+  const handleStartCompare = useCallback(() => {
+    if (compareSelection.length < 2) return;
+    trigger('success');
+    router.push({
+      pathname: '/compare',
+      params: { ids: compareSelection.join(',') },
+    });
+  }, [compareSelection, router, trigger]);
+
+  const handleAnalysisPress = useCallback((id: string) => {
+    if (compareMode) {
+      toggleCompareSelection(id);
+    } else {
+      router.push({ pathname: '/verdict', params: { id } });
+    }
+  }, [compareMode, toggleCompareSelection, router]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
@@ -247,10 +290,37 @@ export default function HistoryTab() {
         entering={reduceMotion ? undefined : FadeInDown.duration(300)}
         style={styles.header}
       >
-        <Text style={styles.headerTitle}>History</Text>
-        <Text style={styles.headerSubtitle}>
-          {analysisSummaries.length} {analysisSummaries.length === 1 ? 'analysis' : 'analyses'}
-        </Text>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.headerTitle}>History</Text>
+            <Text style={styles.headerSubtitle}>
+              {analysisSummaries.length} {analysisSummaries.length === 1 ? 'analysis' : 'analyses'}
+            </Text>
+          </View>
+          {analysisSummaries.length >= 2 && (
+            <PressableScale
+              onPress={toggleCompareMode}
+              style={[
+                styles.compareToggle,
+                compareMode && styles.compareToggleActive,
+              ]}
+              accessibilityLabel={compareMode ? 'Exit compare mode' : 'Enter compare mode'}
+              accessibilityHint={compareMode ? 'Tap to exit selection mode' : 'Tap to select items to compare'}
+            >
+              <Text style={[
+                styles.compareToggleText,
+                compareMode && styles.compareToggleTextActive,
+              ]}>
+                {compareMode ? 'Cancel' : 'Compare'}
+              </Text>
+            </PressableScale>
+          )}
+        </View>
+        {compareMode && (
+          <Text style={styles.compareHint}>
+            Select 2-3 analyses to compare
+          </Text>
+        )}
       </Animated.View>
 
       <Animated.ScrollView
@@ -308,11 +378,24 @@ export default function HistoryTab() {
                   layout={reduceMotion ? undefined : Layout.springify()}
                 >
                   <Card
-                    onPress={() => handleOpenAnalysis(analysis.id)}
-                    onLongPress={() => handleLongPress(analysis)}
+                    onPress={() => handleAnalysisPress(analysis.id)}
+                    onLongPress={compareMode ? undefined : () => handleLongPress(analysis)}
                     padding="md"
-                    style={styles.analysisCard}
+                    style={[
+                      styles.analysisCard,
+                      compareMode && compareSelection.includes(analysis.id) && styles.analysisCardSelected,
+                    ]}
                   >
+                    {compareMode && (
+                      <View style={[
+                        styles.selectionIndicator,
+                        compareSelection.includes(analysis.id) && styles.selectionIndicatorSelected,
+                      ]}>
+                        {compareSelection.includes(analysis.id) && (
+                          <Text style={styles.checkmark}>✓</Text>
+                        )}
+                      </View>
+                    )}
                     <Text style={styles.analysisHeadline} numberOfLines={2}>
                       {analysis.verdictHeadline}
                     </Text>
@@ -355,6 +438,26 @@ export default function HistoryTab() {
           </Animated.View>
         )}
       </Animated.ScrollView>
+
+      {/* Floating Compare Button */}
+      {compareMode && compareSelection.length >= 2 && (
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(150)}
+          style={styles.compareButtonContainer}
+        >
+          <PressableScale
+            onPress={handleStartCompare}
+            style={styles.compareButton}
+            accessibilityLabel={`Compare ${compareSelection.length} analyses`}
+            accessibilityHint="Opens comparison view"
+          >
+            <Text style={styles.compareButtonText}>
+              Compare {compareSelection.length} Analyses
+            </Text>
+          </PressableScale>
+        </Animated.View>
+      )}
 
       {/* Action Sheet Modal */}
       <Modal
@@ -451,6 +554,36 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     paddingBottom: spacing.md,
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  compareToggle: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+  },
+  compareToggleActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  compareToggleText: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.medium,
+    color: colors.textSecondary,
+  },
+  compareToggleTextActive: {
+    color: colors.textPrimary,
+  },
+  compareHint: {
+    fontSize: typography.sizes.xs,
+    color: colors.accent,
+    marginTop: spacing.sm,
+  },
   headerTitle: {
     fontSize: typography.sizes.xxxl,
     fontWeight: typography.weights.bold,
@@ -546,6 +679,55 @@ const styles = StyleSheet.create({
   },
   analysisCard: {
     marginBottom: spacing.md,
+  },
+  analysisCardSelected: {
+    borderColor: colors.accent,
+    borderWidth: 2,
+  },
+  selectionIndicator: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 2,
+    borderColor: colors.surfaceBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectionIndicatorSelected: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  checkmark: {
+    fontSize: 14,
+    color: colors.textPrimary,
+    fontWeight: typography.weights.bold,
+  },
+  compareButtonContainer: {
+    position: 'absolute',
+    bottom: spacing.xxl,
+    left: spacing.lg,
+    right: spacing.lg,
+  },
+  compareButton: {
+    backgroundColor: colors.accent,
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  compareButtonText: {
+    fontSize: typography.sizes.base,
+    fontWeight: typography.weights.semibold,
+    color: colors.textPrimary,
   },
   analysisHeadline: {
     fontSize: typography.sizes.base,
