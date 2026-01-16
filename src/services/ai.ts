@@ -88,6 +88,57 @@ function generateId(): string {
   return `analysis_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
+// Auto-generate a descriptive title from the argument content
+function autoGenerateTitle(input: AnalysisInput): string {
+  // Get all side labels
+  const labels = input.sides.map(s => s.label).filter(l => l.trim());
+
+  // Extract keywords from content (common topics that appear in arguments)
+  const allContent = input.sides.map(s => s.content).join(' ').toLowerCase();
+
+  // Common argument topics to detect
+  const topics: Record<string, string[]> = {
+    'Money': ['money', 'pay', 'cost', 'budget', 'expense', 'rent', 'bills', 'financial'],
+    'Time': ['time', 'schedule', 'late', 'early', 'deadline', 'hours', 'minutes'],
+    'Chores': ['chores', 'clean', 'dishes', 'laundry', 'housework', 'mess'],
+    'Work': ['work', 'job', 'career', 'boss', 'office', 'professional'],
+    'Family': ['family', 'parents', 'kids', 'children', 'mom', 'dad', 'relatives'],
+    'Relationship': ['relationship', 'dating', 'love', 'trust', 'commitment'],
+    'Communication': ['talk', 'listen', 'communicate', 'said', 'told', 'message'],
+    'Plans': ['plan', 'decision', 'choice', 'option', 'future', 'vacation', 'trip'],
+    'Fairness': ['fair', 'equal', 'share', 'responsibility', 'turn'],
+    'Boundaries': ['boundary', 'privacy', 'space', 'respect', 'limit'],
+  };
+
+  // Find matching topics
+  const matchedTopics: string[] = [];
+  for (const [topic, keywords] of Object.entries(topics)) {
+    if (keywords.some(kw => allContent.includes(kw))) {
+      matchedTopics.push(topic);
+      if (matchedTopics.length >= 2) break;
+    }
+  }
+
+  // Build the title
+  const versus = labels.length >= 2 ? `${labels[0]} vs ${labels[1]}` : labels[0] || 'The Argument';
+
+  if (matchedTopics.length > 0) {
+    const topicStr = matchedTopics.length > 1
+      ? `${matchedTopics[0]} & ${matchedTopics[1]}`
+      : matchedTopics[0];
+    return `${versus}: ${topicStr}`;
+  }
+
+  // Fallback: use first few words from first side
+  const firstContent = input.sides[0]?.content || '';
+  const firstWords = firstContent.split(/\s+/).slice(0, 4).join(' ');
+  if (firstWords.length > 5) {
+    return `${versus}: "${firstWords}..."`;
+  }
+
+  return versus;
+}
+
 // Mock data generators
 function generateMockSideAnalysis(
   sideId: string,
@@ -235,12 +286,15 @@ export class MockAIProvider implements AIProvider {
     const scoreDiff = sideScores.length > 1 ? sideScores[0].total - sideScores[1].total : 0;
     const isClear = scoreDiff > 3;
 
+    // Generate auto-title based on content
+    const autoTitle = autoGenerateTitle(input);
+
     // Generate verdict
     const verdictBase = isClear
       ? `${winner.label} presents a stronger case overall.`
       : `This is a close call with valid points on both sides.`;
 
-    const verdictHeadline = getCommentatorTonedText(input.commentatorStyle, verdictBase);
+    const verdictHeadline = `${autoTitle} — ${getCommentatorTonedText(input.commentatorStyle, verdictBase)}`;
 
     const patterns = generateMockPatterns(sideAnalyses);
 
