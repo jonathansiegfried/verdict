@@ -1,6 +1,7 @@
 // VerdictReveal - Animated verdict display with staggered reveals
 // The "signature moment" of the app - headline slides in, bullets stagger, scores pop
-import React, { useEffect, useRef, useState } from 'react';
+// Uses theme tokens for preset-specific animations and styling
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -9,16 +10,14 @@ import Animated, {
   withSpring,
   withDelay,
   withSequence,
-  withRepeat,
   FadeIn,
   FadeInDown,
   FadeInUp,
   Easing,
-  interpolate,
 } from 'react-native-reanimated';
-import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useHaptics } from '../hooks/useHaptics';
-import { colors, spacing, typography, borderRadius, animation } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
+import { colors, typography, animation } from '../constants/theme';
 import type { AnalysisResult } from '../types';
 
 // Celebration sparkle particle component
@@ -27,9 +26,11 @@ interface SparkleProps {
   x: number;
   y: number;
   reduceMotion: boolean;
+  accentColor: string;
+  springConfig: { damping: number; stiffness: number };
 }
 
-function Sparkle({ delay, x, y, reduceMotion }: SparkleProps) {
+function Sparkle({ delay, x, y, reduceMotion, accentColor, springConfig }: SparkleProps) {
   const scale = useSharedValue(0);
   const opacity = useSharedValue(0);
   const rotation = useSharedValue(0);
@@ -37,12 +38,12 @@ function Sparkle({ delay, x, y, reduceMotion }: SparkleProps) {
   useEffect(() => {
     if (reduceMotion) return;
 
-    // Animate sparkle with delay
+    // Animate sparkle with delay using theme's spring config
     scale.value = withDelay(
       delay,
       withSequence(
-        withSpring(1.2, { damping: 8, stiffness: 200 }),
-        withSpring(0, { damping: 10, stiffness: 150 })
+        withSpring(1.2, springConfig),
+        withSpring(0, springConfig)
       )
     );
     opacity.value = withDelay(
@@ -56,7 +57,7 @@ function Sparkle({ delay, x, y, reduceMotion }: SparkleProps) {
       delay,
       withTiming(180, { duration: 500, easing: Easing.out(Easing.ease) })
     );
-  }, [delay, reduceMotion]);
+  }, [delay, reduceMotion, springConfig]);
 
   const sparkleStyle = useAnimatedStyle(() => ({
     transform: [
@@ -76,23 +77,30 @@ function Sparkle({ delay, x, y, reduceMotion }: SparkleProps) {
         sparkleStyle,
       ]}
     >
-      <Text style={styles.sparkleText}>✦</Text>
+      <Text style={[styles.sparkleText, { color: accentColor }]}>✦</Text>
     </Animated.View>
   );
 }
 
 // Celebration container component
-function CelebrationEffect({ reduceMotion }: { reduceMotion: boolean }) {
+interface CelebrationProps {
+  reduceMotion: boolean;
+  accentColor: string;
+  springConfig: { damping: number; stiffness: number };
+  staggerDelay: number;
+}
+
+function CelebrationEffect({ reduceMotion, accentColor, springConfig, staggerDelay }: CelebrationProps) {
   if (reduceMotion) return null;
 
-  // Predefined sparkle positions around the center
+  // Predefined sparkle positions around the center with theme-based delays
   const sparkles = [
-    { x: -40, y: -30, delay: 200 },
-    { x: 40, y: -25, delay: 280 },
-    { x: -50, y: 10, delay: 360 },
-    { x: 55, y: 5, delay: 440 },
-    { x: -30, y: 35, delay: 320 },
-    { x: 35, y: 40, delay: 400 },
+    { x: -40, y: -30, delay: staggerDelay * 4 },
+    { x: 40, y: -25, delay: staggerDelay * 5 },
+    { x: -50, y: 10, delay: staggerDelay * 6 },
+    { x: 55, y: 5, delay: staggerDelay * 7 },
+    { x: -30, y: 35, delay: staggerDelay * 5.5 },
+    { x: 35, y: 40, delay: staggerDelay * 6.5 },
   ];
 
   return (
@@ -104,6 +112,8 @@ function CelebrationEffect({ reduceMotion }: { reduceMotion: boolean }) {
           y={sparkle.y}
           delay={sparkle.delay}
           reduceMotion={reduceMotion}
+          accentColor={accentColor}
+          springConfig={springConfig}
         />
       ))}
     </View>
@@ -120,9 +130,11 @@ interface ScoreChipProps {
   score: number;
   delay: number;
   reduceMotion: boolean;
+  springConfig: { damping: number; stiffness: number };
+  radius: number;
 }
 
-function ScoreChip({ label, score, delay, reduceMotion }: ScoreChipProps) {
+function ScoreChip({ label, score, delay, reduceMotion, springConfig, radius }: ScoreChipProps) {
   const scale = useSharedValue(0);
   const opacity = useSharedValue(0);
 
@@ -131,10 +143,10 @@ function ScoreChip({ label, score, delay, reduceMotion }: ScoreChipProps) {
       scale.value = 1;
       opacity.value = 1;
     } else {
-      scale.value = withDelay(delay, withSpring(1, animation.spring.bouncy));
+      scale.value = withDelay(delay, withSpring(1, springConfig));
       opacity.value = withDelay(delay, withTiming(1, { duration: 150 }));
     }
-  }, [delay, reduceMotion, scale, opacity]);
+  }, [delay, reduceMotion, scale, opacity, springConfig]);
 
   const chipStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -149,7 +161,7 @@ function ScoreChip({ label, score, delay, reduceMotion }: ScoreChipProps) {
   };
 
   return (
-    <Animated.View style={[styles.scoreChip, chipStyle]}>
+    <Animated.View style={[styles.scoreChip, { borderRadius: radius }, chipStyle]}>
       <Text style={styles.scoreLabel}>{label}</Text>
       <Text style={[styles.scoreValue, { color: getScoreColor() }]}>
         {score.toFixed(1)}
@@ -159,10 +171,18 @@ function ScoreChip({ label, score, delay, reduceMotion }: ScoreChipProps) {
 }
 
 export function VerdictReveal({ result, outcomeMode }: VerdictRevealProps) {
-  const reduceMotion = useReducedMotion();
+  const { tokens, reduceMotion, getAccentColor } = useTheme();
   const { trigger } = useHaptics();
   const hasTriggeredHaptic = useRef(false);
   const [showContent, setShowContent] = useState(false);
+
+  // Get theme-specific values
+  const accentColor = getAccentColor();
+  const springConfig = useMemo(() => ({
+    damping: tokens.motion.springDamping,
+    stiffness: tokens.motion.springStiffness,
+  }), [tokens.motion]);
+  const staggerDelay = tokens.motion.staggerDelay;
 
   // Pulse animation for the verdict badge
   const pulseScale = useSharedValue(1);
@@ -191,47 +211,130 @@ export function VerdictReveal({ result, outcomeMode }: VerdictRevealProps) {
       // Heavy haptic for the "moment of truth"
       trigger('success');
 
-      // Soft pulse animation on the badge
+      // Soft pulse animation on the badge using theme's spring config
       if (!reduceMotion) {
         pulseScale.value = withSequence(
           withTiming(1.08, { duration: 150 }),
           withTiming(0.97, { duration: 100 }),
-          withSpring(1, { damping: 12, stiffness: 200 })
+          withSpring(1, springConfig)
         );
       }
     }
-  }, [showContent, trigger, reduceMotion, pulseScale]);
+  }, [showContent, trigger, reduceMotion, pulseScale, springConfig]);
 
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
   }));
 
-  // Adjusted delays (after the 600ms initial pause)
+  // Dynamic styles based on theme tokens
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      paddingHorizontal: tokens.spacing.lg,
+    },
+    anticipationContainer: {
+      paddingHorizontal: tokens.spacing.lg,
+      paddingVertical: tokens.spacing.xxxl,
+    },
+    anticipationText: {
+      fontSize: tokens.typography.lg,
+      marginBottom: tokens.spacing.lg,
+    },
+    anticipationDots: {
+      gap: tokens.spacing.sm,
+    },
+    dot: {
+      backgroundColor: accentColor,
+    },
+    headline: {
+      fontSize: tokens.typography.xxl,
+      marginBottom: tokens.spacing.md,
+    },
+    explanation: {
+      fontSize: tokens.typography.base,
+      marginBottom: tokens.spacing.xl,
+    },
+    winnerBadge: {
+      paddingHorizontal: tokens.spacing.xl,
+      paddingVertical: tokens.spacing.md,
+      borderRadius: tokens.radius.lg,
+    },
+    peaceBadge: {
+      paddingHorizontal: tokens.spacing.xl,
+      paddingVertical: tokens.spacing.md,
+      borderRadius: tokens.radius.lg,
+      borderColor: accentColor,
+      gap: tokens.spacing.sm,
+    },
+    peaceLabel: {
+      fontSize: tokens.typography.md,
+      color: accentColor,
+    },
+    bulletList: {
+      marginBottom: tokens.spacing.xl,
+      gap: tokens.spacing.md,
+    },
+    bulletItem: {
+      gap: tokens.spacing.sm,
+    },
+    bulletDot: {
+      backgroundColor: accentColor,
+    },
+    scoresContainer: {
+      marginBottom: tokens.spacing.xl,
+    },
+    scoresTitle: {
+      fontSize: tokens.typography.sm,
+      marginBottom: tokens.spacing.md,
+    },
+    scoresGrid: {
+      gap: tokens.spacing.sm,
+    },
+    patternsContainer: {
+      borderRadius: tokens.radius.lg,
+      padding: tokens.spacing.lg,
+    },
+    patternsTitle: {
+      fontSize: tokens.typography.sm,
+      marginBottom: tokens.spacing.md,
+    },
+    patternItem: {
+      marginBottom: tokens.spacing.md,
+    },
+    patternName: {
+      fontSize: tokens.typography.base,
+      marginBottom: tokens.spacing.xs,
+    },
+    patternDesc: {
+      fontSize: tokens.typography.sm,
+    },
+  }), [tokens, accentColor]);
+
+  // Adjusted delays using theme's stagger (after the 600ms initial pause)
   const headlineDelay = 0;
-  const explanationDelay = 150;
-  const bulletBaseDelay = 350;
-  const bulletStagger = 60;
-  const scoreBaseDelay = 600;
-  const scoreStagger = 80;
+  const explanationDelay = staggerDelay * 3;
+  const bulletBaseDelay = staggerDelay * 7;
+  const bulletStagger = staggerDelay;
+  const scoreBaseDelay = staggerDelay * 12;
+  const scoreStagger = staggerDelay * 1.5;
 
   // Don't render anything during the anticipation pause (creates the "moment")
   if (!showContent && !reduceMotion) {
     return (
-      <View style={styles.anticipationContainer}>
+      <View style={[styles.anticipationContainer, dynamicStyles.anticipationContainer]}>
         <Animated.View
           entering={FadeIn.duration(200)}
           style={styles.anticipationContent}
         >
-          <Text style={styles.anticipationText}>Analyzing...</Text>
-          <View style={styles.anticipationDots}>
+          <Text style={[styles.anticipationText, dynamicStyles.anticipationText]}>Analyzing...</Text>
+          <View style={[styles.anticipationDots, dynamicStyles.anticipationDots]}>
             <Animated.View
-              style={[styles.dot, { opacity: 0.4 }]}
+              style={[styles.dot, dynamicStyles.dot, { opacity: 0.4 }]}
             />
             <Animated.View
-              style={[styles.dot, { opacity: 0.6 }]}
+              style={[styles.dot, dynamicStyles.dot, { opacity: 0.6 }]}
             />
             <Animated.View
-              style={[styles.dot, { opacity: 0.8 }]}
+              style={[styles.dot, dynamicStyles.dot, { opacity: 0.8 }]}
             />
           </View>
         </Animated.View>
@@ -256,15 +359,15 @@ export function VerdictReveal({ result, outcomeMode }: VerdictRevealProps) {
   const sideScores = result.sideAnalyses[0]?.scores;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, dynamicStyles.container]}>
       {/* Headline */}
       <Animated.Text
         entering={
           reduceMotion
             ? undefined
-            : FadeInDown.delay(headlineDelay).duration(250).springify()
+            : FadeInDown.delay(headlineDelay).duration(250).springify().damping(springConfig.damping)
         }
-        style={styles.headline}
+        style={[styles.headline, dynamicStyles.headline]}
       >
         {result.verdictHeadline}
       </Animated.Text>
@@ -276,7 +379,7 @@ export function VerdictReveal({ result, outcomeMode }: VerdictRevealProps) {
             ? undefined
             : FadeIn.delay(explanationDelay).duration(200)
         }
-        style={styles.explanation}
+        style={[styles.explanation, dynamicStyles.explanation]}
       >
         {result.verdictExplanation}
       </Animated.Text>
@@ -284,14 +387,19 @@ export function VerdictReveal({ result, outcomeMode }: VerdictRevealProps) {
       {/* Winner badge for win mode with celebration + pulse */}
       {outcomeMode === 'win' && result.winAnalysis?.winnerLabel && (
         <View style={styles.winnerBadgeContainer}>
-          <CelebrationEffect reduceMotion={reduceMotion} />
+          <CelebrationEffect
+            reduceMotion={reduceMotion}
+            accentColor={accentColor}
+            springConfig={springConfig}
+            staggerDelay={staggerDelay}
+          />
           <Animated.View
             entering={
               reduceMotion
                 ? undefined
-                : FadeInUp.delay(bulletBaseDelay - 100).duration(200).springify()
+                : FadeInUp.delay(bulletBaseDelay - staggerDelay * 2).duration(200).springify().damping(springConfig.damping)
             }
-            style={[styles.winnerBadge, pulseStyle]}
+            style={[styles.winnerBadge, dynamicStyles.winnerBadge, pulseStyle]}
           >
             <Text style={styles.winnerLabel}>
               {result.winAnalysis.winnerLabel}
@@ -304,23 +412,28 @@ export function VerdictReveal({ result, outcomeMode }: VerdictRevealProps) {
       {/* Peace badge for peace mode with pulse */}
       {outcomeMode === 'peace' && (
         <View style={styles.winnerBadgeContainer}>
-          <CelebrationEffect reduceMotion={reduceMotion} />
+          <CelebrationEffect
+            reduceMotion={reduceMotion}
+            accentColor={accentColor}
+            springConfig={springConfig}
+            staggerDelay={staggerDelay}
+          />
           <Animated.View
             entering={
               reduceMotion
                 ? undefined
-                : FadeInUp.delay(bulletBaseDelay - 100).duration(200).springify()
+                : FadeInUp.delay(bulletBaseDelay - staggerDelay * 2).duration(200).springify().damping(springConfig.damping)
             }
-            style={[styles.peaceBadge, pulseStyle]}
+            style={[styles.peaceBadge, dynamicStyles.peaceBadge, pulseStyle]}
           >
             <Text style={styles.peaceIcon}>🕊️</Text>
-            <Text style={styles.peaceLabel}>Path to Resolution</Text>
+            <Text style={[styles.peaceLabel, dynamicStyles.peaceLabel]}>Path to Resolution</Text>
           </Animated.View>
         </View>
       )}
 
       {/* Bullet points */}
-      <View style={styles.bulletList}>
+      <View style={[styles.bulletList, dynamicStyles.bulletList]}>
         {bullets.map((bullet, index) => (
           <Animated.View
             key={index}
@@ -329,10 +442,12 @@ export function VerdictReveal({ result, outcomeMode }: VerdictRevealProps) {
                 ? undefined
                 : FadeInDown.delay(bulletBaseDelay + index * bulletStagger)
                     .duration(200)
+                    .springify()
+                    .damping(springConfig.damping)
             }
-            style={styles.bulletItem}
+            style={[styles.bulletItem, dynamicStyles.bulletItem]}
           >
-            <View style={styles.bulletDot} />
+            <View style={[styles.bulletDot, dynamicStyles.bulletDot]} />
             <Text style={styles.bulletText}>{bullet}</Text>
           </Animated.View>
         ))}
@@ -340,32 +455,40 @@ export function VerdictReveal({ result, outcomeMode }: VerdictRevealProps) {
 
       {/* Score chips */}
       {sideScores && (
-        <View style={styles.scoresContainer}>
-          <Text style={styles.scoresTitle}>Average Scores</Text>
-          <View style={styles.scoresGrid}>
+        <View style={[styles.scoresContainer, dynamicStyles.scoresContainer]}>
+          <Text style={[styles.scoresTitle, dynamicStyles.scoresTitle]}>Average Scores</Text>
+          <View style={[styles.scoresGrid, dynamicStyles.scoresGrid]}>
             <ScoreChip
               label="Clarity"
               score={sideScores.clarity}
               delay={scoreBaseDelay}
               reduceMotion={reduceMotion}
+              springConfig={springConfig}
+              radius={tokens.radius.md}
             />
             <ScoreChip
               label="Evidence"
               score={sideScores.evidenceQuality}
               delay={scoreBaseDelay + scoreStagger}
               reduceMotion={reduceMotion}
+              springConfig={springConfig}
+              radius={tokens.radius.md}
             />
             <ScoreChip
               label="Logic"
               score={sideScores.logicalConsistency}
               delay={scoreBaseDelay + scoreStagger * 2}
               reduceMotion={reduceMotion}
+              springConfig={springConfig}
+              radius={tokens.radius.md}
             />
             <ScoreChip
               label="Fairness"
               score={sideScores.fairness}
               delay={scoreBaseDelay + scoreStagger * 3}
               reduceMotion={reduceMotion}
+              springConfig={springConfig}
+              radius={tokens.radius.md}
             />
           </View>
         </View>
@@ -377,15 +500,15 @@ export function VerdictReveal({ result, outcomeMode }: VerdictRevealProps) {
           entering={
             reduceMotion
               ? undefined
-              : FadeIn.delay(scoreBaseDelay + 400).duration(200)
+              : FadeIn.delay(scoreBaseDelay + staggerDelay * 8).duration(200)
           }
-          style={styles.patternsContainer}
+          style={[styles.patternsContainer, dynamicStyles.patternsContainer]}
         >
-          <Text style={styles.patternsTitle}>Patterns Detected</Text>
+          <Text style={[styles.patternsTitle, dynamicStyles.patternsTitle]}>Patterns Detected</Text>
           {result.patternsDetected.map((pattern, index) => (
-            <View key={index} style={styles.patternItem}>
-              <Text style={styles.patternName}>{pattern.name}</Text>
-              <Text style={styles.patternDesc}>{pattern.description}</Text>
+            <View key={index} style={[styles.patternItem, dynamicStyles.patternItem]}>
+              <Text style={[styles.patternName, dynamicStyles.patternName]}>{pattern.name}</Text>
+              <Text style={[styles.patternDesc, dynamicStyles.patternDesc]}>{pattern.description}</Text>
             </View>
           ))}
         </Animated.View>
@@ -395,13 +518,9 @@ export function VerdictReveal({ result, outcomeMode }: VerdictRevealProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: spacing.lg,
-  },
+  container: {},
   // Anticipation pause state (the "moment of truth" build-up)
   anticipationContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xxxl,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 200,
@@ -410,35 +529,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   anticipationText: {
-    fontSize: typography.sizes.lg,
     fontWeight: typography.weights.medium,
     color: colors.textSecondary,
-    marginBottom: spacing.lg,
   },
   anticipationDots: {
     flexDirection: 'row',
-    gap: spacing.sm,
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.accent,
   },
   headline: {
-    fontSize: typography.sizes.xxl,
     fontWeight: typography.weights.bold,
     color: colors.textPrimary,
     textAlign: 'center',
-    marginBottom: spacing.md,
-    lineHeight: typography.sizes.xxl * typography.lineHeights.tight,
+    lineHeight: 32,
   },
   explanation: {
-    fontSize: typography.sizes.base,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: spacing.xl,
-    lineHeight: typography.sizes.base * typography.lineHeights.relaxed,
+    lineHeight: 22,
   },
   // Celebration sparkle styles
   celebrationContainer: {
@@ -454,39 +565,28 @@ const styles = StyleSheet.create({
   },
   sparkleText: {
     fontSize: 16,
-    color: colors.accent,
   },
   winnerBadgeContainer: {
     alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: 24,
   },
   winnerBadge: {
     backgroundColor: colors.successMuted,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
     alignItems: 'center',
   },
   peaceBadge: {
     backgroundColor: colors.surfaceElevated,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.accent,
     flexDirection: 'row',
-    gap: spacing.sm,
   },
   peaceIcon: {
     fontSize: 20,
   },
   peaceLabel: {
-    fontSize: typography.sizes.md,
     fontWeight: typography.weights.semibold,
-    color: colors.accent,
   },
   winnerLabel: {
     fontSize: typography.sizes.lg,
@@ -498,20 +598,15 @@ const styles = StyleSheet.create({
     color: colors.success,
     opacity: 0.8,
   },
-  bulletList: {
-    marginBottom: spacing.xl,
-    gap: spacing.md,
-  },
+  bulletList: {},
   bulletItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: spacing.sm,
   },
   bulletDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.accent,
     marginTop: 8,
   },
   bulletText: {
@@ -520,30 +615,24 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: typography.sizes.base * typography.lineHeights.normal,
   },
-  scoresContainer: {
-    marginBottom: spacing.xl,
-  },
+  scoresContainer: {},
   scoresTitle: {
-    fontSize: typography.sizes.sm,
     fontWeight: typography.weights.medium,
     color: colors.textTertiary,
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: spacing.md,
   },
   scoresGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
   },
   scoreChip: {
     backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 8,
   },
   scoreLabel: {
     fontSize: typography.sizes.sm,
@@ -555,28 +644,19 @@ const styles = StyleSheet.create({
   },
   patternsContainer: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
   },
   patternsTitle: {
-    fontSize: typography.sizes.sm,
     fontWeight: typography.weights.medium,
     color: colors.textTertiary,
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: spacing.md,
   },
-  patternItem: {
-    marginBottom: spacing.md,
-  },
+  patternItem: {},
   patternName: {
-    fontSize: typography.sizes.base,
     fontWeight: typography.weights.semibold,
     color: colors.warning,
-    marginBottom: spacing.xs,
   },
   patternDesc: {
-    fontSize: typography.sizes.sm,
     color: colors.textSecondary,
   },
 });
