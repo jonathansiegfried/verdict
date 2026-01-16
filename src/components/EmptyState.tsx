@@ -37,7 +37,8 @@ export function EmptyState({
   variant = 'default',
   style,
 }: EmptyStateProps) {
-  const { tokens, reduceMotion } = useTheme();
+  const { tokens, reduceMotion, getAccentColor } = useTheme();
+  const accentColor = getAccentColor();
 
   // Floating animation for the icon
   const floatAnim = useSharedValue(0);
@@ -102,7 +103,7 @@ export function EmptyState({
         {variant !== 'minimal' && (
           <Animated.View style={[styles.iconGlow, glowAnimatedStyle]}>
             <LinearGradient
-              colors={[colors.accent + '40', colors.accent + '00']}
+              colors={[accentColor + '40', accentColor + '00']}
               style={styles.iconGlowGradient}
               start={{ x: 0.5, y: 0 }}
               end={{ x: 0.5, y: 1 }}
@@ -136,6 +137,7 @@ export function EmptyState({
               paddingHorizontal: tokens.spacing.xl,
               paddingVertical: tokens.spacing.md,
               borderRadius: tokens.radius.full,
+              backgroundColor: accentColor,
             },
           ]}
           accessibilityLabel={actionLabel}
@@ -187,7 +189,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   actionButton: {
-    backgroundColor: colors.accent,
+    // backgroundColor applied inline via getAccentColor()
   },
   actionButtonText: {
     fontWeight: typography.weights.semibold,

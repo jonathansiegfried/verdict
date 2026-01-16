@@ -28,7 +28,8 @@ import type { DraftData } from '../../src/services/storage';
 
 export default function HomeTab() {
   const router = useRouter();
-  const { tokens, reduceMotion } = useTheme();
+  const { tokens, reduceMotion, getAccentColor } = useTheme();
+  const accentColor = getAccentColor();
   const { trigger } = useHaptics();
 
   // Draft state
@@ -102,9 +103,9 @@ export default function HomeTab() {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
       borderWidth: 1,
-      borderColor: colors.accent,
+      borderColor: accentColor,
     },
-  }), [tokens]);
+  }), [tokens, accentColor]);
 
   // Load insights, templates, and check for drafts on mount
   useEffect(() => {
@@ -218,7 +219,7 @@ export default function HomeTab() {
         {savedDraft && (
           <Animated.View
             entering={reduceMotion ? undefined : FadeInDown.delay(50).duration(300)}
-            style={styles.draftBanner}
+            style={[styles.draftBanner, { borderColor: accentColor }]}
           >
             <View style={styles.draftBannerContent}>
               <Text style={styles.draftBannerIcon}>📝</Text>
@@ -239,7 +240,7 @@ export default function HomeTab() {
               </PressableScale>
               <PressableScale
                 onPress={handleResumeDraft}
-                style={styles.draftResumeButton}
+                style={[styles.draftResumeButton, { backgroundColor: accentColor }]}
                 accessibilityLabel="Resume draft"
               >
                 <Text style={styles.draftResumeText}>Resume</Text>
@@ -280,7 +281,7 @@ export default function HomeTab() {
                 accessible={true}
                 accessibilityLabel={`${remainingAnalyses} analyses remaining this week`}
               >
-                <Text style={[styles.statValue, styles.statValueAccent, { fontSize: tokens.typography.xxl, marginBottom: tokens.spacing.xs }]}>
+                <Text style={[styles.statValue, { fontSize: tokens.typography.xxl, marginBottom: tokens.spacing.xs, color: accentColor }]}>
                   {remainingAnalyses}
                 </Text>
                 <Text style={[styles.statLabel, { fontSize: tokens.typography.xs }]}>Remaining</Text>
@@ -324,7 +325,7 @@ export default function HomeTab() {
                       {template.sides.length} sides
                     </Text>
                     {template.useCount > 0 && (
-                      <Text style={[styles.templateUseCount, { fontSize: tokens.typography.xs }]}>
+                      <Text style={[styles.templateUseCount, { fontSize: tokens.typography.xs, color: accentColor }]}>
                         Used {template.useCount}×
                       </Text>
                     )}
@@ -348,7 +349,7 @@ export default function HomeTab() {
                 accessibilityLabel="View all analyses"
                 accessibilityHint="Opens the history tab"
               >
-                <Text style={[styles.viewAllLink, { fontSize: tokens.typography.sm }]}>View all</Text>
+                <Text style={[styles.viewAllLink, { fontSize: tokens.typography.sm, color: accentColor }]}>View all</Text>
               </PressableScale>
             </View>
 
@@ -401,14 +402,14 @@ export default function HomeTab() {
               accessibilityHint="Double tap to view upgrade options"
             >
               <View style={styles.proContent}>
-                <Text style={[styles.proTitle, { fontSize: tokens.typography.base, marginBottom: tokens.spacing.xs }]}>
+                <Text style={[styles.proTitle, { fontSize: tokens.typography.base, marginBottom: tokens.spacing.xs, color: accentColor }]}>
                   Upgrade to Pro
                 </Text>
                 <Text style={[styles.proSubtitle, { fontSize: tokens.typography.sm }]}>
                   Unlimited analyses, more sides, premium features
                 </Text>
               </View>
-              <Text style={[styles.proArrow, { fontSize: tokens.typography.xl }]} importantForAccessibility="no">→</Text>
+              <Text style={[styles.proArrow, { fontSize: tokens.typography.xl, color: accentColor }]} importantForAccessibility="no">→</Text>
             </PressableScale>
           </Animated.View>
         )}
@@ -434,7 +435,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.accent,
+    // borderColor applied inline via getAccentColor()
   },
   draftBannerContent: {
     flexDirection: 'row',
@@ -478,7 +479,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.accent,
+    // backgroundColor applied inline via getAccentColor()
     alignItems: 'center',
   },
   draftResumeText: {
@@ -495,9 +496,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.weights.bold,
     color: colors.textPrimary,
   },
-  statValueAccent: {
-    color: colors.accent,
-  },
+  // statValueAccent removed - color applied inline via getAccentColor()
   statLabel: {
     color: colors.textSecondary,
   },
@@ -507,7 +506,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   viewAllLink: {
-    color: colors.accent,
+    // color applied inline via getAccentColor()
     fontWeight: typography.weights.medium,
   },
   recentCard: {
@@ -563,19 +562,19 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
   templateUseCount: {
-    color: colors.accent,
+    // color applied inline via getAccentColor()
   },
   proContent: {
     flex: 1,
   },
   proTitle: {
     fontWeight: typography.weights.semibold,
-    color: colors.accent,
+    // color applied inline via getAccentColor()
   },
   proSubtitle: {
     color: colors.textSecondary,
   },
   proArrow: {
-    color: colors.accent,
+    // color applied inline via getAccentColor()
   },
 });

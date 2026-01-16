@@ -22,6 +22,7 @@ import {
 } from '../src/components';
 import { useAppStore } from '../src/store/useAppStore';
 import { useReducedMotion, useHaptics } from '../src/hooks';
+import { useTheme } from '../src/context/ThemeContext';
 import {
   colors,
   spacing,
@@ -37,6 +38,8 @@ export default function InputScreen() {
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const { trigger } = useHaptics();
+  const { getAccentColor } = useTheme();
+  const accentColor = getAccentColor();
 
   const currentSides = useAppStore((s) => s.currentSides);
   const currentCommentatorStyle = useAppStore((s) => s.currentCommentatorStyle);
@@ -213,7 +216,7 @@ export default function InputScreen() {
 
             {canAddSide && (
               <PressableScale onPress={handleAddSide} style={styles.addSideButton}>
-                <Text style={styles.addSideText}>+ Add another side</Text>
+                <Text style={[styles.addSideText, { color: accentColor }]}>+ Add another side</Text>
               </PressableScale>
             )}
           </Animated.View>
@@ -255,7 +258,10 @@ export default function InputScreen() {
                   onPress={() => setCommentatorStyle(option.id as CommentatorStyle)}
                   style={[
                     styles.styleChip,
-                    currentCommentatorStyle === option.id && styles.styleChipActive,
+                    currentCommentatorStyle === option.id && {
+                      backgroundColor: accentColor,
+                      borderColor: accentColor,
+                    },
                   ]}
                 >
                   <Text
@@ -412,7 +418,7 @@ const styles = StyleSheet.create({
   },
   addSideText: {
     fontSize: typography.sizes.base,
-    color: colors.accent,
+    // color applied inline via getAccentColor()
     fontWeight: typography.weights.medium,
   },
   contextInput: {
@@ -437,10 +443,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
   },
-  styleChipActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
+  // styleChipActive removed - styles applied inline via getAccentColor()
   styleChipText: {
     fontSize: typography.sizes.sm,
     color: colors.textSecondary,
