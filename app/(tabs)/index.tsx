@@ -22,6 +22,7 @@ import { Card, PressableScale, EmptyState } from '../../src/components';
 import { useAppStore } from '../../src/store/useAppStore';
 import { useTheme } from '../../src/context/ThemeContext';
 import { colors, typography } from '../../src/constants/theme';
+import type { AnalysisTemplate } from '../../src/types';
 
 export default function HomeTab() {
   const router = useRouter();
@@ -32,6 +33,13 @@ export default function HomeTab() {
   const getRemainingAnalyses = useAppStore((s) => s.getRemainingAnalyses);
   const loadInsights = useAppStore((s) => s.loadInsights);
   const weeklyInsights = useAppStore((s) => s.weeklyInsights);
+
+  // Templates
+  const recentTemplates = useAppStore((s) => s.recentTemplates);
+  const templates = useAppStore((s) => s.templates);
+  const loadAllTemplates = useAppStore((s) => s.loadAllTemplates);
+  const applyTemplate = useAppStore((s) => s.applyTemplate);
+  const useTemplate = useAppStore((s) => s.useTemplate);
 
   const remainingAnalyses = getRemainingAnalyses();
   const recentAnalyses = analysisSummaries.slice(0, 3);
@@ -87,10 +95,16 @@ export default function HomeTab() {
     },
   }), [tokens]);
 
-  // Load insights on mount
+  // Load insights and templates on mount
   useEffect(() => {
     loadInsights();
-  }, [loadInsights]);
+    loadAllTemplates();
+  }, [loadInsights, loadAllTemplates]);
+
+  // Templates to show in Quick Start: recent if available, otherwise defaults
+  const quickStartTemplates = recentTemplates.length > 0
+    ? recentTemplates
+    : templates.slice(0, 3);
 
   // Subtle pulse animation for stats
   const pulseAnim = useSharedValue(0);
@@ -115,6 +129,12 @@ export default function HomeTab() {
 
   const handleOpenAnalysis = (id: string) => {
     router.push({ pathname: '/verdict', params: { id } });
+  };
+
+  const handleSelectTemplate = async (template: AnalysisTemplate) => {
+    applyTemplate(template);
+    await useTemplate(template.id);
+    router.push('/(tabs)/analyze');
   };
 
   const formatDate = (timestamp: number) => {
@@ -189,10 +209,56 @@ export default function HomeTab() {
           </View>
         </Animated.View>
 
+        {/* Quick Start Templates */}
+        {quickStartTemplates.length > 0 && (
+          <Animated.View
+            entering={reduceMotion ? undefined : FadeInDown.delay(200).duration(400)}
+            style={[styles.quickStartSection, { marginBottom: tokens.spacing.xxl }]}
+          >
+            <Text style={[styles.sectionTitle, { fontSize: tokens.typography.lg, marginBottom: tokens.spacing.md }]}>
+              Quick Start
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.quickStartScrollContent}
+            >
+              {quickStartTemplates.map((template) => (
+                <PressableScale
+                  key={template.id}
+                  onPress={() => handleSelectTemplate(template)}
+                  style={styles.templateCard}
+                  accessibilityLabel={`${template.title}. ${template.description || ''}`}
+                  accessibilityHint="Double tap to start analysis with this template"
+                >
+                  <Text style={[styles.templateTitle, { fontSize: tokens.typography.base }]} numberOfLines={1}>
+                    {template.title}
+                  </Text>
+                  {template.description && (
+                    <Text style={[styles.templateDescription, { fontSize: tokens.typography.xs }]} numberOfLines={2}>
+                      {template.description}
+                    </Text>
+                  )}
+                  <View style={styles.templateMeta}>
+                    <Text style={[styles.templateSides, { fontSize: tokens.typography.xs }]}>
+                      {template.sides.length} sides
+                    </Text>
+                    {template.useCount > 0 && (
+                      <Text style={[styles.templateUseCount, { fontSize: tokens.typography.xs }]}>
+                        Used {template.useCount}×
+                      </Text>
+                    )}
+                  </View>
+                </PressableScale>
+              ))}
+            </ScrollView>
+          </Animated.View>
+        )}
+
         {/* Recent Analyses */}
         {recentAnalyses.length > 0 ? (
           <Animated.View
-            entering={reduceMotion ? undefined : FadeInDown.delay(200).duration(400)}
+            entering={reduceMotion ? undefined : FadeInDown.delay(300).duration(400)}
             style={[styles.recentSection, { marginBottom: tokens.spacing.xxl }]}
           >
             <View style={dynamicStyles.sectionHeader}>
@@ -246,7 +312,7 @@ export default function HomeTab() {
         {/* Pro Upsell */}
         {!settings.isPro && (
           <Animated.View
-            entering={reduceMotion ? undefined : FadeInDown.delay(300).duration(400)}
+            entering={reduceMotion ? undefined : FadeInDown.delay(400).duration(400)}
           >
             <PressableScale
               onPress={() => router.push('/upgrade')}
@@ -326,6 +392,41 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
   emptySection: {},
+  quickStartSection: {},
+  quickStartScrollContent: {
+    gap: 12,
+    paddingRight: 4,
+  },
+  templateCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    width: 160,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+  },
+  templateTitle: {
+    fontWeight: typography.weights.semibold,
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  templateDescription: {
+    color: colors.textSecondary,
+    marginBottom: 8,
+    lineHeight: 16,
+  },
+  templateMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 'auto',
+  },
+  templateSides: {
+    color: colors.textTertiary,
+  },
+  templateUseCount: {
+    color: colors.accent,
+  },
   proContent: {
     flex: 1,
   },
