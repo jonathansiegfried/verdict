@@ -1,5 +1,5 @@
-// Settings Tab - Design presets, preferences, data management
-import React, { useState, useCallback } from 'react';
+// Settings Tab - Design presets, preferences, data management, templates
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,21 +9,26 @@ import {
   Alert,
   Share,
   Platform,
+  Modal,
+  Pressable,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeIn, FadeOut } from 'react-native-reanimated';
 import Constants from 'expo-constants';
 import * as Sharing from 'expo-sharing';
 import { Paths, File } from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
-import { Card, PressableScale } from '../../src/components';
+import { Card, PressableScale, AnimatedSegmentedControl } from '../../src/components';
 import { Toast, useToast } from '../../src/components/Toast';
 import { useAppStore } from '../../src/store/useAppStore';
 import { useTheme, PRESET_LIST, type DesignPreset } from '../../src/context/ThemeContext';
 import { loadAnalyses, clearAllData, importAnalyses, type ImportMode } from '../../src/services/storage';
 import * as DocumentPicker from 'expo-document-picker';
-import { colors, typography } from '../../src/constants/theme';
+import { colors, typography, spacing, borderRadius, commentatorStyles, evidenceModes } from '../../src/constants/theme';
+import type { AnalysisTemplate } from '../../src/types';
+import type { CommentatorStyle, EvidenceMode } from '../../src/constants/theme';
 
 // Preview tile for design preset
 function PresetPreviewTile({
@@ -116,11 +121,35 @@ export default function SettingsTab() {
   const analysisSummaries = useAppStore((s) => s.analysisSummaries);
   const loadHistory = useAppStore((s) => s.loadHistory);
 
+  // Templates
+  const templates = useAppStore((s) => s.templates);
+  const loadAllTemplates = useAppStore((s) => s.loadAllTemplates);
+  const createTemplate = useAppStore((s) => s.createTemplate);
+  const updateTemplate = useAppStore((s) => s.updateTemplate);
+  const deleteTemplate = useAppStore((s) => s.deleteTemplate);
+
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Template modal state
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<AnalysisTemplate | null>(null);
+  const [templateTitle, setTemplateTitle] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
+  const [templateSides, setTemplateSides] = useState<{ label: string; placeholder?: string }[]>([
+    { label: 'Side A', placeholder: '' },
+    { label: 'Side B', placeholder: '' },
+  ]);
+  const [templateStyle, setTemplateStyle] = useState<CommentatorStyle>('neutral');
+  const [templateEvidence, setTemplateEvidence] = useState<EvidenceMode>('light');
+
   const appVersion = Constants.expoConfig?.version || '1.0.0';
+
+  // Load templates on mount
+  useEffect(() => {
+    loadAllTemplates();
+  }, [loadAllTemplates]);
 
   const handlePresetSelect = useCallback((newPreset: DesignPreset) => {
     if (newPreset !== preset) {
@@ -288,6 +317,114 @@ export default function SettingsTab() {
   const handleUpgrade = () => {
     router.push('/upgrade');
   };
+
+  // Template handlers
+  const resetTemplateForm = useCallback(() => {
+    setTemplateTitle('');
+    setTemplateDescription('');
+    setTemplateSides([
+      { label: 'Side A', placeholder: '' },
+      { label: 'Side B', placeholder: '' },
+    ]);
+    setTemplateStyle('neutral');
+    setTemplateEvidence('light');
+    setEditingTemplate(null);
+  }, []);
+
+  const handleCreateTemplate = useCallback(() => {
+    resetTemplateForm();
+    setShowTemplateModal(true);
+  }, [resetTemplateForm]);
+
+  const handleEditTemplate = useCallback((template: AnalysisTemplate) => {
+    setEditingTemplate(template);
+    setTemplateTitle(template.title);
+    setTemplateDescription(template.description || '');
+    setTemplateSides(template.sides.map(s => ({ label: s.label, placeholder: s.placeholder || '' })));
+    setTemplateStyle(template.commentatorStyle);
+    setTemplateEvidence(template.evidenceMode);
+    setShowTemplateModal(true);
+  }, []);
+
+  const handleDeleteTemplate = useCallback((template: AnalysisTemplate) => {
+    Alert.alert(
+      'Delete Template',
+      `Are you sure you want to delete "${template.title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteTemplate(template.id);
+            showToast('Template deleted');
+          },
+        },
+      ]
+    );
+  }, [deleteTemplate, showToast]);
+
+  const handleSaveTemplate = useCallback(async () => {
+    if (!templateTitle.trim()) {
+      Alert.alert('Error', 'Please enter a title for the template.');
+      return;
+    }
+
+    if (templateSides.some(s => !s.label.trim())) {
+      Alert.alert('Error', 'Please enter labels for all sides.');
+      return;
+    }
+
+    const templateData = {
+      title: templateTitle.trim(),
+      description: templateDescription.trim() || undefined,
+      sides: templateSides.map(s => ({
+        label: s.label.trim(),
+        placeholder: s.placeholder?.trim() || undefined,
+      })),
+      commentatorStyle: templateStyle,
+      evidenceMode: templateEvidence,
+    };
+
+    try {
+      if (editingTemplate) {
+        await updateTemplate(editingTemplate.id, templateData);
+        showToast('Template updated');
+      } else {
+        await createTemplate(templateData);
+        showToast('Template created');
+      }
+      setShowTemplateModal(false);
+      resetTemplateForm();
+    } catch {
+      Alert.alert('Error', 'Could not save template. Please try again.');
+    }
+  }, [
+    templateTitle,
+    templateDescription,
+    templateSides,
+    templateStyle,
+    templateEvidence,
+    editingTemplate,
+    updateTemplate,
+    createTemplate,
+    showToast,
+    resetTemplateForm,
+  ]);
+
+  const handleAddTemplateSide = useCallback(() => {
+    if (templateSides.length >= 5) return;
+    setTemplateSides([...templateSides, { label: `Side ${String.fromCharCode(65 + templateSides.length)}`, placeholder: '' }]);
+  }, [templateSides]);
+
+  const handleRemoveTemplateSide = useCallback((index: number) => {
+    if (templateSides.length <= 2) return;
+    setTemplateSides(templateSides.filter((_, i) => i !== index));
+  }, [templateSides]);
+
+  const updateTemplateSide = useCallback((index: number, updates: { label?: string; placeholder?: string }) => {
+    setTemplateSides(templateSides.map((s, i) => i === index ? { ...s, ...updates } : s));
+  }, [templateSides]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -519,9 +656,74 @@ export default function SettingsTab() {
           </Card>
         </Animated.View>
 
-        {/* About Section */}
+        {/* Templates Section */}
         <Animated.View
           entering={reduceMotion ? undefined : FadeInDown.delay(250).duration(300)}
+          style={[styles.section, { marginBottom: tokens.spacing.xxl }]}
+        >
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { fontSize: tokens.typography.sm }]}>
+              Templates
+            </Text>
+            <PressableScale
+              onPress={handleCreateTemplate}
+              style={[styles.addTemplateButton, { backgroundColor: accentColor }]}
+            >
+              <Text style={styles.addTemplateButtonText}>+ New</Text>
+            </PressableScale>
+          </View>
+
+          {templates.length === 0 ? (
+            <Card padding="lg">
+              <View style={styles.emptyTemplates}>
+                <Text style={styles.emptyTemplatesIcon}>📋</Text>
+                <Text style={[styles.emptyTemplatesText, { fontSize: tokens.typography.sm }]}>
+                  No templates yet
+                </Text>
+                <Text style={[styles.emptyTemplatesSubtext, { fontSize: tokens.typography.xs }]}>
+                  Create templates for quick-starting analyses
+                </Text>
+              </View>
+            </Card>
+          ) : (
+            <Card padding="none">
+              {templates.map((template, index) => (
+                <View key={template.id}>
+                  {index > 0 && <View style={styles.separator} />}
+                  <View style={[styles.templateRow, { padding: tokens.spacing.lg }]}>
+                    <View style={styles.templateInfo}>
+                      <Text style={[styles.templateTitle, { fontSize: tokens.typography.base }]}>
+                        {template.title}
+                      </Text>
+                      <Text style={[styles.templateMeta, { fontSize: tokens.typography.xs }]}>
+                        {template.sides.length} sides · {template.commentatorStyle}
+                        {template.useCount > 0 && ` · Used ${template.useCount}×`}
+                      </Text>
+                    </View>
+                    <View style={styles.templateActions}>
+                      <PressableScale
+                        onPress={() => handleEditTemplate(template)}
+                        style={styles.templateActionButton}
+                      >
+                        <Text style={styles.templateActionIcon}>✏️</Text>
+                      </PressableScale>
+                      <PressableScale
+                        onPress={() => handleDeleteTemplate(template)}
+                        style={styles.templateActionButton}
+                      >
+                        <Text style={styles.templateActionIcon}>🗑️</Text>
+                      </PressableScale>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </Card>
+          )}
+        </Animated.View>
+
+        {/* About Section */}
+        <Animated.View
+          entering={reduceMotion ? undefined : FadeInDown.delay(300).duration(300)}
           style={[styles.section, { marginBottom: tokens.spacing.xxxl * 2 }]}
         >
           <Text style={[styles.sectionTitle, { fontSize: tokens.typography.sm, marginBottom: tokens.spacing.md }]}>
@@ -546,6 +748,144 @@ export default function SettingsTab() {
           </Card>
         </Animated.View>
       </ScrollView>
+
+      {/* Template Create/Edit Modal */}
+      <Modal
+        visible={showTemplateModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowTemplateModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowTemplateModal(false)}
+        >
+          <Pressable style={styles.templateModal} onPress={() => {}}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.templateModalTitle}>
+                {editingTemplate ? 'Edit Template' : 'New Template'}
+              </Text>
+
+              {/* Title */}
+              <View style={styles.templateFormField}>
+                <Text style={styles.templateFormLabel}>Title *</Text>
+                <TextInput
+                  style={[styles.templateFormInput, { borderColor: accentColor }]}
+                  value={templateTitle}
+                  onChangeText={setTemplateTitle}
+                  placeholder="e.g., Couple Disagreement"
+                  placeholderTextColor={colors.textTertiary}
+                />
+              </View>
+
+              {/* Description */}
+              <View style={styles.templateFormField}>
+                <Text style={styles.templateFormLabel}>Description (optional)</Text>
+                <TextInput
+                  style={[styles.templateFormInput, { borderColor: colors.surfaceBorder }]}
+                  value={templateDescription}
+                  onChangeText={setTemplateDescription}
+                  placeholder="What is this template for?"
+                  placeholderTextColor={colors.textTertiary}
+                />
+              </View>
+
+              {/* Sides */}
+              <View style={styles.templateFormField}>
+                <Text style={styles.templateFormLabel}>Sides ({templateSides.length})</Text>
+                {templateSides.map((side, index) => (
+                  <View key={index} style={styles.templateSideRow}>
+                    <TextInput
+                      style={[styles.templateSideInput, { flex: 1 }]}
+                      value={side.label}
+                      onChangeText={(text) => updateTemplateSide(index, { label: text })}
+                      placeholder={`Side ${String.fromCharCode(65 + index)}`}
+                      placeholderTextColor={colors.textTertiary}
+                    />
+                    {templateSides.length > 2 && (
+                      <PressableScale
+                        onPress={() => handleRemoveTemplateSide(index)}
+                        style={styles.removeSideButton}
+                      >
+                        <Text style={styles.removeSideButtonText}>✕</Text>
+                      </PressableScale>
+                    )}
+                  </View>
+                ))}
+                {templateSides.length < 5 && (
+                  <PressableScale
+                    onPress={handleAddTemplateSide}
+                    style={styles.addSideButton}
+                  >
+                    <Text style={[styles.addSideButtonText, { color: accentColor }]}>+ Add Side</Text>
+                  </PressableScale>
+                )}
+              </View>
+
+              {/* Style */}
+              <View style={styles.templateFormField}>
+                <Text style={styles.templateFormLabel}>Commentator Style</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.styleChipsContainer}
+                >
+                  {commentatorStyles.map((s) => (
+                    <PressableScale
+                      key={s.id}
+                      onPress={() => setTemplateStyle(s.id)}
+                      style={[
+                        styles.styleChip,
+                        templateStyle === s.id && { backgroundColor: accentColor, borderColor: accentColor },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.styleChipText,
+                          templateStyle === s.id && styles.styleChipTextActive,
+                        ]}
+                      >
+                        {s.label}
+                      </Text>
+                    </PressableScale>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Evidence Mode */}
+              <View style={styles.templateFormField}>
+                <Text style={styles.templateFormLabel}>Evidence Mode</Text>
+                <AnimatedSegmentedControl
+                  options={evidenceModes.map(m => ({ id: m.id, label: m.label }))}
+                  value={templateEvidence}
+                  onChange={setTemplateEvidence}
+                />
+              </View>
+
+              {/* Actions */}
+              <View style={styles.templateModalActions}>
+                <PressableScale
+                  onPress={() => {
+                    setShowTemplateModal(false);
+                    resetTemplateForm();
+                  }}
+                  style={styles.templateCancelButton}
+                >
+                  <Text style={styles.templateCancelText}>Cancel</Text>
+                </PressableScale>
+                <PressableScale
+                  onPress={handleSaveTemplate}
+                  style={[styles.templateSaveButton, { backgroundColor: accentColor }]}
+                >
+                  <Text style={styles.templateSaveText}>
+                    {editingTemplate ? 'Update' : 'Create'}
+                  </Text>
+                </PressableScale>
+              </View>
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -755,5 +1095,191 @@ const styles = StyleSheet.create({
   disclaimerText: {
     color: colors.textTertiary,
     lineHeight: 16,
+  },
+  // Templates section
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  addTemplateButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+  },
+  addTemplateButtonText: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.semibold,
+    color: colors.textPrimary,
+  },
+  emptyTemplates: {
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+  },
+  emptyTemplatesIcon: {
+    fontSize: 32,
+    marginBottom: spacing.sm,
+  },
+  emptyTemplatesText: {
+    color: colors.textSecondary,
+    fontWeight: typography.weights.medium,
+    marginBottom: spacing.xs,
+  },
+  emptyTemplatesSubtext: {
+    color: colors.textTertiary,
+  },
+  templateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  templateInfo: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  templateTitle: {
+    fontWeight: typography.weights.medium,
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  templateMeta: {
+    color: colors.textTertiary,
+  },
+  templateActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  templateActionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  templateActionIcon: {
+    fontSize: 16,
+  },
+  // Template Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: colors.overlay,
+    justifyContent: 'flex-end',
+  },
+  templateModal: {
+    backgroundColor: colors.backgroundSecondary,
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    padding: spacing.xl,
+    maxHeight: '90%',
+  },
+  templateModalTitle: {
+    fontSize: typography.sizes.xl,
+    fontWeight: typography.weights.bold,
+    color: colors.textPrimary,
+    marginBottom: spacing.xl,
+    textAlign: 'center',
+  },
+  templateFormField: {
+    marginBottom: spacing.lg,
+  },
+  templateFormLabel: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.medium,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  templateFormInput: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: typography.sizes.base,
+    color: colors.textPrimary,
+    borderWidth: 2,
+  },
+  templateSideRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  templateSideInput: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: typography.sizes.base,
+    color: colors.textPrimary,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+  },
+  removeSideButton: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  removeSideButtonText: {
+    fontSize: 16,
+    color: colors.error,
+  },
+  addSideButton: {
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  addSideButtonText: {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.medium,
+  },
+  styleChipsContainer: {
+    gap: spacing.sm,
+    paddingRight: spacing.xs,
+  },
+  styleChip: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+  },
+  styleChipText: {
+    fontSize: typography.sizes.sm,
+    color: colors.textSecondary,
+    fontWeight: typography.weights.medium,
+  },
+  styleChipTextActive: {
+    color: colors.textPrimary,
+  },
+  templateModalActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.xl,
+    paddingBottom: spacing.xl,
+  },
+  templateCancelButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surface,
+  },
+  templateCancelText: {
+    fontSize: typography.sizes.base,
+    color: colors.textSecondary,
+    fontWeight: typography.weights.medium,
+  },
+  templateSaveButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+  },
+  templateSaveText: {
+    fontSize: typography.sizes.base,
+    color: colors.textPrimary,
+    fontWeight: typography.weights.semibold,
   },
 });
