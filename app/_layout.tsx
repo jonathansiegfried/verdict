@@ -37,10 +37,11 @@ function RootLayoutInner() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.background },
+          // Default: horizontal slide for push navigation
           animation: 'slide_from_right',
         }}
       >
-        {/* Tab navigation group */}
+        {/* Tab navigation group - no animation when switching */}
         <Stack.Screen
           name="(tabs)"
           options={{
@@ -48,8 +49,28 @@ function RootLayoutInner() {
             animation: 'none',
           }}
         />
-        {/* Stack screens outside tabs */}
-        <Stack.Screen name="input" />
+
+        {/* PUSH SCREENS: slide_from_right */}
+        <Stack.Screen
+          name="input"
+          options={{
+            animation: 'slide_from_right',
+          }}
+        />
+        <Stack.Screen
+          name="verdict"
+          options={{
+            animation: 'slide_from_right',
+          }}
+        />
+        <Stack.Screen
+          name="compare"
+          options={{
+            animation: 'slide_from_right',
+          }}
+        />
+
+        {/* TRANSITION SCREENS: fade (no gesture) */}
         <Stack.Screen
           name="analyzing"
           options={{
@@ -57,7 +78,8 @@ function RootLayoutInner() {
             animation: 'fade',
           }}
         />
-        <Stack.Screen name="verdict" />
+
+        {/* MODAL SCREENS: slide_from_bottom */}
         <Stack.Screen
           name="upgrade"
           options={{

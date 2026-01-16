@@ -26,8 +26,12 @@ import { colors, typography, shadows } from '../../src/constants/theme';
 
 export default function AnalyzeTab() {
   const router = useRouter();
-  const { tokens, reduceMotion } = useTheme();
+  const { tokens, reduceMotion, getAccentColor, getGradient } = useTheme();
   const { trigger } = useHaptics();
+
+  // Get preset-specific colors
+  const accentColor = getAccentColor();
+  const gradientColors = getGradient();
 
   const settings = useAppStore((s) => s.settings);
   const resetInput = useAppStore((s) => s.resetInput);
@@ -35,7 +39,7 @@ export default function AnalyzeTab() {
 
   const remainingAnalyses = getRemainingAnalyses();
 
-  // Dynamic styles based on theme tokens
+  // Dynamic styles based on theme tokens and preset colors
   const dynamicStyles = useMemo(() => ({
     content: {
       flex: 1,
@@ -50,11 +54,27 @@ export default function AnalyzeTab() {
       marginTop: tokens.spacing.xxxl,
     },
     bigButtonContainer: {
-      width: 160,
-      height: 160,
+      width: 180,
+      height: 180,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
       marginBottom: tokens.spacing.lg,
+    },
+    buttonGlow: {
+      position: 'absolute' as const,
+      width: 180,
+      height: 180,
+      borderRadius: 90,
+      backgroundColor: accentColor,
+    },
+    bigButton: {
+      width: 160,
+      height: 160,
+      borderRadius: tokens.radius.full === 9999 ? 80 : tokens.radius.lg * 2,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      borderWidth: tokens.button.borderWidth,
+      borderColor: accentColor,
     },
     infoSection: {
       marginTop: tokens.spacing.xxl,
@@ -82,10 +102,20 @@ export default function AnalyzeTab() {
       borderRadius: tokens.radius.lg,
       padding: tokens.spacing.md,
       gap: tokens.spacing.md,
-      borderWidth: 1,
+      borderWidth: tokens.card.borderWidth,
       borderColor: colors.surfaceBorder,
+      ...(tokens.card.shadowOpacity > 0 ? {
+        shadowColor: '#000',
+        shadowOpacity: tokens.card.shadowOpacity,
+        shadowRadius: tokens.card.shadowRadius,
+        shadowOffset: { width: 0, height: tokens.card.shadowOffsetY },
+        elevation: 4,
+      } : {}),
     },
-  }), [tokens]);
+    upgradeLink: {
+      color: accentColor,
+    },
+  }), [tokens, accentColor]);
 
   // Pulse animation for the big button
   const pulseAnim = useSharedValue(0);
@@ -159,16 +189,16 @@ export default function AnalyzeTab() {
         >
           <View style={dynamicStyles.bigButtonContainer}>
             {/* Glow effect behind button */}
-            <Animated.View style={[styles.buttonGlow, glowStyle]} />
+            <Animated.View style={[dynamicStyles.buttonGlow, glowStyle]} />
 
             {/* Main button */}
             <Pressable onPress={handleStartNew}>
               <Animated.View style={[styles.bigButtonWrapper, pulseStyle]}>
                 <LinearGradient
-                  colors={[colors.accent, colors.gradientEnd]}
+                  colors={gradientColors}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={styles.bigButton}
+                  style={dynamicStyles.bigButton}
                 >
                   <Text style={styles.bigButtonIcon}>+</Text>
                 </LinearGradient>
@@ -193,7 +223,7 @@ export default function AnalyzeTab() {
                 {remainingAnalyses} free {remainingAnalyses === 1 ? 'analysis' : 'analyses'} left this week
               </Text>
               <Pressable onPress={() => router.push('/upgrade')}>
-                <Text style={[styles.upgradeLink, { fontSize: tokens.typography.sm }]}>Upgrade to Pro →</Text>
+                <Text style={[styles.upgradeLink, dynamicStyles.upgradeLink, { fontSize: tokens.typography.sm }]}>Upgrade to Pro →</Text>
               </Pressable>
             </View>
           ) : (
@@ -248,22 +278,8 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
-  buttonGlow: {
-    position: 'absolute',
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: colors.accent,
-  },
   bigButtonWrapper: {
     ...shadows.lg,
-  },
-  bigButton: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   bigButtonIcon: {
     fontSize: 56,
@@ -282,7 +298,6 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
   upgradeLink: {
-    color: colors.accent,
     fontWeight: typography.weights.medium,
   },
   proText: {

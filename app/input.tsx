@@ -18,6 +18,7 @@ import {
   PrimaryButton,
   AnimatedSegmentedControl,
   PressableScale,
+  Header,
 } from '../src/components';
 import { useAppStore } from '../src/store/useAppStore';
 import { useReducedMotion, useHaptics } from '../src/hooks';
@@ -119,9 +120,7 @@ export default function InputScreen() {
   const canRemoveSide = currentSides.length > 2;
   const isValid = canStartAnalysis();
 
-  const handleBack = () => {
-    router.back();
-  };
+  // handleBack removed - now using shared Header component
 
   const handleAnalyze = useCallback(() => {
     if (!isValid) {
@@ -163,13 +162,7 @@ export default function InputScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* Header */}
-        <View style={styles.header}>
-          <Pressable onPress={handleBack} hitSlop={12}>
-            <Text style={styles.backButton}>← Back</Text>
-          </Pressable>
-          <Text style={styles.headerTitle}>New Analysis</Text>
-          <View style={styles.headerSpacer} />
-        </View>
+        <Header title="New Analysis" />
 
         <ScrollView
           style={styles.scrollView}
