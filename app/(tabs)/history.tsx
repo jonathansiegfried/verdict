@@ -8,6 +8,7 @@ import {
   TextInput,
   Modal,
   Pressable,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -33,7 +34,8 @@ interface GroupedAnalyses {
 export default function HistoryTab() {
   const router = useRouter();
   const { trigger } = useHaptics();
-  const { tokens, reduceMotion } = useTheme();
+  const { tokens, reduceMotion, getAccentColor } = useTheme();
+  const accentColor = getAccentColor();
 
   const analysisSummaries = useAppStore((s) => s.analysisSummaries);
   const deleteAnalysis = useAppStore((s) => s.deleteAnalysis);
@@ -46,6 +48,7 @@ export default function HistoryTab() {
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameText, setRenameText] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   // Compare mode state
   const [compareMode, setCompareMode] = useState(false);
@@ -129,6 +132,16 @@ export default function HistoryTab() {
   React.useEffect(() => {
     loadInsights();
   }, [loadInsights]);
+
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    trigger('light');
+    await loadInsights();
+    // Small delay for visual feedback
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    setRefreshing(false);
+  }, [loadInsights, trigger]);
 
   // Group analyses by date
   const groupedAnalyses = useMemo((): GroupedAnalyses[] => {
@@ -327,11 +340,20 @@ export default function HistoryTab() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={accentColor}
+            colors={[accentColor]}
+            progressBackgroundColor={colors.surface}
+          />
+        }
       >
         {/* Weekly Insights */}
         {weeklyInsights && weeklyInsights.totalAnalyses > 0 && (
           <Animated.View
-            entering={reduceMotion ? undefined : FadeIn.delay(0).duration(300)}
+            entering={reduceMotion ? undefined : FadeInDown.delay(tokens.motion.staggerDelay).duration(300).springify().damping(tokens.motion.springDamping)}
             style={styles.insightsSection}
           >
             <View style={styles.insightsRow}>
@@ -366,16 +388,16 @@ export default function HistoryTab() {
           groupedAnalyses.map((group, groupIndex) => (
             <Animated.View
               key={group.title}
-              entering={reduceMotion ? undefined : FadeIn.delay(groupIndex * 50).duration(200)}
+              entering={reduceMotion ? undefined : FadeIn.delay(groupIndex * tokens.motion.staggerDelay * 2).duration(250)}
               style={styles.groupSection}
             >
               <Text style={styles.groupTitle}>{group.title}</Text>
               {group.data.map((analysis, index) => (
                 <Animated.View
                   key={analysis.id}
-                  entering={reduceMotion ? undefined : FadeIn.delay(index * 30).duration(200)}
+                  entering={reduceMotion ? undefined : FadeInDown.delay(index * tokens.motion.staggerDelay).duration(200).springify().damping(tokens.motion.springDamping).stiffness(tokens.motion.springStiffness)}
                   exiting={reduceMotion ? undefined : SlideOutLeft.duration(200)}
-                  layout={reduceMotion ? undefined : Layout.springify()}
+                  layout={reduceMotion ? undefined : Layout.springify().damping(tokens.motion.springDamping).stiffness(tokens.motion.springStiffness)}
                 >
                   <Card
                     onPress={() => handleAnalysisPress(analysis.id)}
@@ -429,7 +451,7 @@ export default function HistoryTab() {
         {/* Hint for long press */}
         {analysisSummaries.length > 0 && (
           <Animated.View
-            entering={reduceMotion ? undefined : FadeIn.delay(300).duration(300)}
+            entering={reduceMotion ? undefined : FadeIn.delay(tokens.motion.staggerDelay * 6).duration(300)}
             style={styles.hintContainer}
           >
             <Text style={styles.hintText}>

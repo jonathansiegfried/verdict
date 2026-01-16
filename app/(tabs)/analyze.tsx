@@ -233,33 +233,39 @@ export default function AnalyzeTab() {
           )}
         </Animated.View>
 
-        {/* Features */}
-        <Animated.View
-          entering={reduceMotion ? undefined : FadeInDown.delay(300).duration(400)}
-          style={dynamicStyles.featuresSection}
-        >
-          <View style={dynamicStyles.featureItem}>
+        {/* Features - staggered entrance */}
+        <View style={dynamicStyles.featuresSection}>
+          <Animated.View
+            entering={reduceMotion ? undefined : FadeInDown.delay(300 + tokens.motion.staggerDelay * 0).duration(300).springify().damping(tokens.motion.springDamping)}
+            style={dynamicStyles.featureItem}
+          >
             <Text style={styles.featureIcon}>⚖️</Text>
             <View style={styles.featureContent}>
               <Text style={[styles.featureTitle, { fontSize: tokens.typography.base }]}>Neutral Analysis</Text>
               <Text style={[styles.featureDesc, { fontSize: tokens.typography.sm }]}>Unbiased evaluation of all sides</Text>
             </View>
-          </View>
-          <View style={dynamicStyles.featureItem}>
+          </Animated.View>
+          <Animated.View
+            entering={reduceMotion ? undefined : FadeInDown.delay(300 + tokens.motion.staggerDelay * 1).duration(300).springify().damping(tokens.motion.springDamping)}
+            style={dynamicStyles.featureItem}
+          >
             <Text style={styles.featureIcon}>🎯</Text>
             <View style={styles.featureContent}>
               <Text style={[styles.featureTitle, { fontSize: tokens.typography.base }]}>Clear Verdicts</Text>
               <Text style={[styles.featureDesc, { fontSize: tokens.typography.sm }]}>Win or peace - you decide the goal</Text>
             </View>
-          </View>
-          <View style={dynamicStyles.featureItem}>
+          </Animated.View>
+          <Animated.View
+            entering={reduceMotion ? undefined : FadeInDown.delay(300 + tokens.motion.staggerDelay * 2).duration(300).springify().damping(tokens.motion.springDamping)}
+            style={dynamicStyles.featureItem}
+          >
             <Text style={styles.featureIcon}>🔒</Text>
             <View style={styles.featureContent}>
               <Text style={[styles.featureTitle, { fontSize: tokens.typography.base }]}>Private & Local</Text>
               <Text style={[styles.featureDesc, { fontSize: tokens.typography.sm }]}>Your data stays on your device</Text>
             </View>
-          </View>
-        </Animated.View>
+          </Animated.View>
+        </View>
       </View>
     </SafeAreaView>
   );

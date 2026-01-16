@@ -1,20 +1,19 @@
 // StagedLoader - Animated multi-step loading indicator
 // Shows progress through analysis stages with smooth transitions
-import React, { useEffect, useState } from 'react';
+// Uses theme tokens for preset-specific styling
+import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSequence,
-  withDelay,
+  withSpring,
   FadeIn,
   FadeOut,
   SlideInLeft,
-  SlideOutLeft,
 } from 'react-native-reanimated';
-import { useReducedMotion } from '../hooks/useReducedMotion';
-import { colors, spacing, typography, animation, borderRadius } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
+import { colors, typography, animation } from '../constants/theme';
 import type { LoaderStep } from '../types';
 
 interface StagedLoaderProps {
@@ -30,8 +29,15 @@ export function StagedLoader({
   isComplete = false,
   onComplete,
 }: StagedLoaderProps) {
-  const reduceMotion = useReducedMotion();
+  const { tokens, reduceMotion, getAccentColor } = useTheme();
+  const accentColor = getAccentColor();
   const progressWidth = useSharedValue(0);
+
+  // Spring config from theme
+  const springConfig = useMemo(() => ({
+    damping: tokens.motion.springDamping,
+    stiffness: tokens.motion.springStiffness,
+  }), [tokens.motion]);
 
   // Calculate progress percentage
   const progressPercent = isComplete
@@ -39,10 +45,12 @@ export function StagedLoader({
     : Math.min(100, ((currentStepIndex + 0.5) / steps.length) * 100);
 
   useEffect(() => {
-    progressWidth.value = withTiming(progressPercent, {
-      duration: reduceMotion ? 100 : animation.duration.normal,
-    });
-  }, [progressPercent, reduceMotion, progressWidth]);
+    if (reduceMotion) {
+      progressWidth.value = progressPercent;
+    } else {
+      progressWidth.value = withSpring(progressPercent, springConfig);
+    }
+  }, [progressPercent, reduceMotion, progressWidth, springConfig]);
 
   useEffect(() => {
     if (isComplete && onComplete) {
@@ -60,27 +68,60 @@ export function StagedLoader({
     ? 'Analysis complete'
     : currentStep?.label || 'Processing...';
 
+  // Dynamic styles based on theme tokens
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      paddingHorizontal: tokens.spacing.lg,
+    },
+    textContainer: {
+      marginBottom: tokens.spacing.lg,
+    },
+    progressTrack: {
+      borderRadius: tokens.radius.xs,
+      marginBottom: tokens.spacing.xl,
+    },
+    progressFill: {
+      backgroundColor: accentColor,
+      borderRadius: tokens.radius.xs,
+    },
+    stepsRow: {
+      marginBottom: tokens.spacing.xxl,
+    },
+    stepDotActive: {
+      backgroundColor: accentColor,
+    },
+    completedList: {
+      gap: tokens.spacing.sm,
+    },
+    completedItem: {
+      gap: tokens.spacing.sm,
+    },
+    checkmark: {
+      borderRadius: tokens.radius.full === 9999 ? 10 : tokens.radius.sm,
+    },
+  }), [tokens, accentColor]);
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, dynamicStyles.container]}>
       {/* Current step text with animation */}
-      <View style={styles.textContainer}>
+      <View style={[styles.textContainer, dynamicStyles.textContainer]}>
         <Animated.Text
           key={displayText}
           entering={reduceMotion ? undefined : FadeIn.duration(200)}
           exiting={reduceMotion ? undefined : FadeOut.duration(150)}
-          style={styles.stepText}
+          style={[styles.stepText, { fontSize: tokens.typography.lg }]}
         >
           {displayText}
         </Animated.Text>
       </View>
 
       {/* Progress bar */}
-      <View style={styles.progressTrack}>
-        <Animated.View style={[styles.progressFill, progressStyle]} />
+      <View style={[styles.progressTrack, dynamicStyles.progressTrack]}>
+        <Animated.View style={[styles.progressFill, dynamicStyles.progressFill, progressStyle]} />
       </View>
 
       {/* Step indicators */}
-      <View style={styles.stepsRow}>
+      <View style={[styles.stepsRow, dynamicStyles.stepsRow]}>
         {steps.map((step, index) => {
           const isActive = index === currentStepIndex;
           const isDone = index < currentStepIndex || isComplete;
@@ -91,13 +132,14 @@ export function StagedLoader({
                 style={[
                   styles.stepDot,
                   isDone && styles.stepDotDone,
-                  isActive && styles.stepDotActive,
+                  isActive && [styles.stepDotActive, dynamicStyles.stepDotActive],
                 ]}
               />
               <Text
                 style={[
                   styles.stepLabel,
                   (isDone || isActive) && styles.stepLabelActive,
+                  { fontSize: tokens.typography.xs },
                 ]}
                 numberOfLines={1}
               >
@@ -109,17 +151,17 @@ export function StagedLoader({
       </View>
 
       {/* Completed steps list */}
-      <View style={styles.completedList}>
+      <View style={[styles.completedList, dynamicStyles.completedList]}>
         {steps.slice(0, currentStepIndex).map((step, index) => (
           <Animated.View
             key={step.id}
-            entering={reduceMotion ? undefined : SlideInLeft.delay(index * 50).duration(200)}
-            style={styles.completedItem}
+            entering={reduceMotion ? undefined : SlideInLeft.delay(index * tokens.motion.staggerDelay).duration(200).springify().damping(tokens.motion.springDamping)}
+            style={[styles.completedItem, dynamicStyles.completedItem]}
           >
-            <View style={styles.checkmark}>
+            <View style={[styles.checkmark, dynamicStyles.checkmark]}>
               <Text style={styles.checkmarkText}>✓</Text>
             </View>
-            <Text style={styles.completedText}>
+            <Text style={[styles.completedText, { fontSize: tokens.typography.sm }]}>
               {step.completedLabel || step.label.replace('...', '')}
             </Text>
           </Animated.View>
@@ -132,15 +174,12 @@ export function StagedLoader({
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
   },
   textContainer: {
     height: 32,
     justifyContent: 'center',
-    marginBottom: spacing.lg,
   },
   stepText: {
-    fontSize: typography.sizes.lg,
     fontWeight: typography.weights.medium,
     color: colors.textPrimary,
     textAlign: 'center',
@@ -149,20 +188,15 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 4,
     backgroundColor: colors.surface,
-    borderRadius: 2,
     overflow: 'hidden',
-    marginBottom: spacing.xl,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: colors.accent,
-    borderRadius: 2,
   },
   stepsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    marginBottom: spacing.xxl,
   },
   stepIndicator: {
     alignItems: 'center',
@@ -173,10 +207,9 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.surfaceBorder,
-    marginBottom: spacing.xs,
+    marginBottom: 4,
   },
   stepDotActive: {
-    backgroundColor: colors.accent,
     width: 12,
     height: 12,
     borderRadius: 6,
@@ -185,7 +218,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success,
   },
   stepLabel: {
-    fontSize: typography.sizes.xs,
     color: colors.textTertiary,
   },
   stepLabelActive: {
@@ -193,17 +225,14 @@ const styles = StyleSheet.create({
   },
   completedList: {
     width: '100%',
-    gap: spacing.sm,
   },
   completedItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
   },
   checkmark: {
     width: 20,
     height: 20,
-    borderRadius: 10,
     backgroundColor: colors.successMuted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -214,7 +243,6 @@ const styles = StyleSheet.create({
     fontWeight: typography.weights.bold,
   },
   completedText: {
-    fontSize: typography.sizes.sm,
     color: colors.textSecondary,
   },
 });

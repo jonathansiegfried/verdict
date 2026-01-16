@@ -1,13 +1,15 @@
 // PressableScale - Base pressable component with scale animation
 // Used as foundation for other interactive components
-import React, { useCallback } from 'react';
-import { StyleSheet, ViewStyle, StyleProp, AccessibilityRole } from 'react-native';
+// Respects theme-specific motion tokens for preset differentiation
+import React, { useCallback, useMemo } from 'react';
+import { StyleSheet, ViewStyle, StyleProp, AccessibilityRole, View } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   withTiming,
   runOnJS,
+  interpolateColor,
 } from 'react-native-reanimated';
 import {
   Gesture,
@@ -15,7 +17,7 @@ import {
 } from 'react-native-gesture-handler';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useHaptics } from '../hooks/useHaptics';
-import { animation } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface PressableScaleProps {
   children: React.ReactNode;
@@ -29,6 +31,8 @@ interface PressableScaleProps {
   accessibilityLabel?: string;
   accessibilityHint?: string;
   accessibilityRole?: AccessibilityRole;
+  // Optional: show pressed overlay for more visual feedback
+  showPressedOverlay?: boolean;
 }
 
 export function PressableScale({
@@ -43,11 +47,20 @@ export function PressableScale({
   accessibilityLabel,
   accessibilityHint,
   accessibilityRole = 'button',
+  showPressedOverlay = false,
 }: PressableScaleProps) {
   const reduceMotion = useReducedMotion();
   const { trigger } = useHaptics();
+  const { tokens } = useTheme();
+
   const scale = useSharedValue(1);
-  const opacity = useSharedValue(1);
+  const pressed = useSharedValue(0);
+
+  // Create spring config from theme motion tokens
+  const springConfig = useMemo(() => ({
+    damping: tokens.motion.springDamping,
+    stiffness: tokens.motion.springStiffness,
+  }), [tokens.motion]);
 
   const handlePress = useCallback(() => {
     if (hapticOnPress) {
@@ -68,15 +81,15 @@ export function PressableScale({
     .maxDuration(10000)
     .onBegin(() => {
       if (!reduceMotion) {
-        scale.value = withSpring(scaleValue, animation.spring.stiff);
+        scale.value = withSpring(scaleValue, springConfig);
       }
-      opacity.value = withTiming(0.9, { duration: 50 });
+      pressed.value = withTiming(1, { duration: 50 });
     })
     .onFinalize((_, success) => {
       if (!reduceMotion) {
-        scale.value = withSpring(1, animation.spring.default);
+        scale.value = withSpring(1, springConfig);
       }
-      opacity.value = withTiming(1, { duration: 100 });
+      pressed.value = withTiming(0, { duration: 150 });
       if (success) {
         runOnJS(handlePress)();
       }
@@ -91,9 +104,20 @@ export function PressableScale({
 
   const composedGesture = Gesture.Race(gesture, longPressGesture);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: disabled ? 0.55 : opacity.value,
+  const animatedStyle = useAnimatedStyle(() => {
+    // Opacity dims more when pressed, and when disabled
+    const baseOpacity = disabled ? 0.55 : 1;
+    const pressedOpacity = 1 - (pressed.value * 0.1);
+
+    return {
+      transform: [{ scale: scale.value }],
+      opacity: baseOpacity * pressedOpacity,
+    };
+  });
+
+  // Optional overlay that shows on press for extra visual feedback
+  const overlayStyle = useAnimatedStyle(() => ({
+    opacity: showPressedOverlay ? pressed.value * 0.08 : 0,
   }));
 
   return (
@@ -110,6 +134,13 @@ export function PressableScale({
         }}
       >
         {children}
+        {/* Pressed overlay for extra visual feedback */}
+        {showPressedOverlay && (
+          <Animated.View
+            style={[styles.pressedOverlay, overlayStyle]}
+            pointerEvents="none"
+          />
+        )}
       </Animated.View>
     </GestureDetector>
   );
@@ -118,5 +149,10 @@ export function PressableScale({
 const styles = StyleSheet.create({
   container: {
     alignSelf: 'stretch',
+  },
+  pressedOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
   },
 });
