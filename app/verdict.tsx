@@ -12,6 +12,7 @@ import {
 import { useAppStore } from '../src/store/useAppStore';
 import { getAnalysisById, saveTakeaway } from '../src/services/storage';
 import { useHaptics } from '../src/hooks';
+import { useTheme } from '../src/context/ThemeContext';
 import { colors, spacing, typography, borderRadius } from '../src/constants/theme';
 import type { AnalysisResult, OutcomeType } from '../src/types';
 
@@ -19,6 +20,8 @@ export default function VerdictScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { trigger } = useHaptics();
+  const { getAccentColor } = useTheme();
+  const accentColor = getAccentColor();
 
   const currentAnalysis = useAppStore((s) => s.currentAnalysis);
   const resetInput = useAppStore((s) => s.resetInput);
@@ -129,7 +132,7 @@ export default function VerdictScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={handleBack} hitSlop={12}>
-          <Text style={styles.backButton}>← Back</Text>
+          <Text style={[styles.backButton, { color: accentColor }]}>← Back</Text>
         </Pressable>
         <Text style={styles.headerTitle}>Verdict</Text>
         <View style={styles.headerSpacer} />
@@ -200,7 +203,7 @@ export default function VerdictScreen() {
           <Text style={styles.changersTitle}>What Would Change the Outcome</Text>
           {analysis.outcomeChangers.map((changer, i) => (
             <View key={i} style={styles.changerItem}>
-              <Text style={styles.changerBullet}>→</Text>
+              <Text style={[styles.changerBullet, { color: accentColor }]}>→</Text>
               <Text style={styles.changerText}>{changer}</Text>
             </View>
           ))}
@@ -244,6 +247,7 @@ export default function VerdictScreen() {
                 disabled={takeawaySaving || !takeawayText.trim()}
                 style={[
                   styles.takeawaySaveButton,
+                  { backgroundColor: accentColor },
                   (!takeawayText.trim() || takeawaySaving) && styles.takeawaySaveButtonDisabled,
                 ]}
               >
