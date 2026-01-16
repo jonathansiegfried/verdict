@@ -21,7 +21,8 @@ import { Card, PressableScale } from '../../src/components';
 import { Toast, useToast } from '../../src/components/Toast';
 import { useAppStore } from '../../src/store/useAppStore';
 import { useTheme, PRESET_LIST, type DesignPreset } from '../../src/context/ThemeContext';
-import { loadAnalyses, clearAllData } from '../../src/services/storage';
+import { loadAnalyses, clearAllData, importAnalyses, type ImportMode } from '../../src/services/storage';
+import * as DocumentPicker from 'expo-document-picker';
 import { colors, typography } from '../../src/constants/theme';
 
 // Preview tile for design preset
@@ -112,6 +113,7 @@ export default function SettingsTab() {
   const loadHistory = useAppStore((s) => s.loadHistory);
 
   const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const appVersion = Constants.expoConfig?.version || '1.0.0';
@@ -172,6 +174,79 @@ export default function SettingsTab() {
       setIsExporting(false);
     }
   }, [analysisSummaries, appVersion, showToast]);
+
+  const handleImportHistory = useCallback(async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/json',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      const file = result.assets[0];
+
+      // Show import mode selection
+      Alert.alert(
+        'Import Mode',
+        'How would you like to import this data?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Merge',
+            onPress: () => performImport(file.uri, 'merge'),
+          },
+          {
+            text: 'Replace All',
+            style: 'destructive',
+            onPress: () => {
+              Alert.alert(
+                'Confirm Replace',
+                'This will delete all existing analyses and replace them with the imported data. Continue?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Replace',
+                    style: 'destructive',
+                    onPress: () => performImport(file.uri, 'replace'),
+                  },
+                ]
+              );
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Document picker error:', error);
+      Alert.alert('Error', 'Could not open file picker. Please try again.');
+    }
+  }, []);
+
+  const performImport = useCallback(async (uri: string, mode: ImportMode) => {
+    setIsImporting(true);
+
+    try {
+      // Read file content
+      const response = await fetch(uri);
+      const jsonString = await response.text();
+
+      const result = await importAnalyses(jsonString, mode);
+
+      if (result.success) {
+        await loadHistory();
+        showToast(result.message);
+      } else {
+        Alert.alert('Import Failed', result.message);
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      Alert.alert('Import Failed', 'Could not read the file. Please try again.');
+    } finally {
+      setIsImporting(false);
+    }
+  }, [loadHistory, showToast]);
 
   const handleDeleteAllHistory = useCallback(() => {
     if (analysisSummaries.length === 0) {
@@ -389,6 +464,29 @@ export default function SettingsTab() {
               </View>
               <Text style={[styles.dataButtonArrow, { fontSize: tokens.typography.lg }]}>
                 {isExporting ? '...' : '→'}
+              </Text>
+            </PressableScale>
+
+            <View style={styles.separator} />
+
+            <PressableScale
+              onPress={handleImportHistory}
+              disabled={isImporting}
+              style={[styles.dataButton, { padding: tokens.spacing.lg }]}
+            >
+              <View style={styles.dataButtonContent}>
+                <Text style={styles.dataButtonIcon}>📥</Text>
+                <View style={styles.dataButtonInfo}>
+                  <Text style={[styles.dataButtonLabel, { fontSize: tokens.typography.base }]}>
+                    Import History
+                  </Text>
+                  <Text style={[styles.dataButtonDescription, { fontSize: tokens.typography.sm }]}>
+                    Load analyses from JSON file
+                  </Text>
+                </View>
+              </View>
+              <Text style={[styles.dataButtonArrow, { fontSize: tokens.typography.lg }]}>
+                {isImporting ? '...' : '→'}
               </Text>
             </PressableScale>
 

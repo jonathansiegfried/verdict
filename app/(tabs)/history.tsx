@@ -22,7 +22,7 @@ import { Card, PressableScale, EmptyState } from '../../src/components';
 import { useAppStore } from '../../src/store/useAppStore';
 import { useHaptics } from '../../src/hooks';
 import { useTheme } from '../../src/context/ThemeContext';
-import { colors, typography } from '../../src/constants/theme';
+import { colors, typography, spacing, borderRadius } from '../../src/constants/theme';
 import type { AnalysisSummary } from '../../src/types';
 
 interface GroupedAnalyses {

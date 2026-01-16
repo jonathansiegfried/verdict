@@ -211,3 +211,121 @@ export async function clearDraft(): Promise<void> {
 export async function clearAllData(): Promise<void> {
   await AsyncStorage.multiRemove([KEYS.ANALYSES, KEYS.SETTINGS, KEYS.INSIGHTS, KEYS.DRAFT]);
 }
+
+// Import/Export data types
+export interface ExportData {
+  exportedAt: string;
+  appVersion: string;
+  totalAnalyses: number;
+  analyses: AnalysisResult[];
+}
+
+// Validate imported data structure
+function isValidExportData(data: unknown): data is ExportData {
+  if (!data || typeof data !== 'object') return false;
+  const d = data as Record<string, unknown>;
+
+  if (typeof d.exportedAt !== 'string') return false;
+  if (typeof d.appVersion !== 'string') return false;
+  if (typeof d.totalAnalyses !== 'number') return false;
+  if (!Array.isArray(d.analyses)) return false;
+
+  // Validate each analysis has required fields
+  for (const analysis of d.analyses) {
+    if (!analysis || typeof analysis !== 'object') return false;
+    const a = analysis as Record<string, unknown>;
+    if (typeof a.id !== 'string') return false;
+    if (typeof a.createdAt !== 'number') return false;
+    if (!a.input || typeof a.input !== 'object') return false;
+  }
+
+  return true;
+}
+
+// Import analyses from JSON data
+export type ImportMode = 'merge' | 'replace';
+
+export interface ImportResult {
+  success: boolean;
+  message: string;
+  imported: number;
+  skipped: number;
+}
+
+export async function importAnalyses(
+  jsonString: string,
+  mode: ImportMode = 'merge'
+): Promise<ImportResult> {
+  try {
+    const data = JSON.parse(jsonString);
+
+    if (!isValidExportData(data)) {
+      return {
+        success: false,
+        message: 'Invalid file format. Please select a valid Verdict+ export file.',
+        imported: 0,
+        skipped: 0,
+      };
+    }
+
+    if (data.analyses.length === 0) {
+      return {
+        success: false,
+        message: 'The import file contains no analyses.',
+        imported: 0,
+        skipped: 0,
+      };
+    }
+
+    if (mode === 'replace') {
+      // Replace all existing analyses
+      const trimmed = data.analyses.slice(0, 100);
+      await AsyncStorage.setItem(KEYS.ANALYSES, JSON.stringify(trimmed));
+
+      return {
+        success: true,
+        message: `Successfully imported ${trimmed.length} analyses.`,
+        imported: trimmed.length,
+        skipped: data.analyses.length - trimmed.length,
+      };
+    } else {
+      // Merge with existing analyses
+      const existing = await loadAnalyses();
+      const existingIds = new Set(existing.map(a => a.id));
+
+      let imported = 0;
+      let skipped = 0;
+
+      for (const analysis of data.analyses) {
+        if (existingIds.has(analysis.id)) {
+          skipped++;
+        } else {
+          existing.push(analysis);
+          imported++;
+        }
+      }
+
+      // Sort by createdAt descending and limit to 100
+      existing.sort((a, b) => b.createdAt - a.createdAt);
+      const trimmed = existing.slice(0, 100);
+
+      await AsyncStorage.setItem(KEYS.ANALYSES, JSON.stringify(trimmed));
+
+      return {
+        success: true,
+        message: `Imported ${imported} new analyses${skipped > 0 ? `, skipped ${skipped} duplicates` : ''}.`,
+        imported,
+        skipped,
+      };
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof SyntaxError
+        ? 'Invalid JSON file. Please select a valid export file.'
+        : 'Failed to import data. Please try again.',
+      imported: 0,
+      skipped: 0,
+    };
+  }
+}

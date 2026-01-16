@@ -57,7 +57,7 @@ export default function InputScreen() {
   const restoreDraft = useAppStore((s) => s.restoreDraft);
 
   const [hasCheckedDraft, setHasCheckedDraft] = useState(false);
-  const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Check for saved draft on mount
   useEffect(() => {
