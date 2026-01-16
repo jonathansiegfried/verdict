@@ -39,7 +39,11 @@ export function PrimaryButton({
 }: PrimaryButtonProps) {
   const reduceMotion = useReducedMotion();
   const { trigger } = useHaptics();
-  const { tokens } = useTheme();
+  const { tokens, getAccentColor, getGradient } = useTheme();
+
+  // Get preset-specific colors
+  const accentColor = getAccentColor();
+  const gradient = getGradient();
 
   // Animation values
   const buttonScale = useSharedValue(1);
@@ -142,13 +146,14 @@ export function PrimaryButton({
   }));
 
   // Glow effect - pulsing shadow behind the button (iOS shadow, Android elevation workaround)
+  // Uses preset-specific accent color for glow
   const glowAnimatedStyle = useAnimatedStyle(() => {
     const shadowOpacity = interpolate(glowIntensity.value, [0, 1, 1.5], [0, 0.4, 0.6]);
     const shadowRadius = interpolate(glowIntensity.value, [0, 1, 1.5], [0, 12, 18]);
 
     return Platform.OS === 'ios'
       ? {
-          shadowColor: colors.accent,
+          shadowColor: accentColor,
           shadowOpacity,
           shadowRadius,
           shadowOffset: { width: 0, height: 4 },
@@ -187,11 +192,21 @@ export function PrimaryButton({
     </View>
   );
 
+  // Dynamic button styles using preset-specific colors
   const buttonStyle = [
     styles.button,
-    { height: buttonHeight, borderRadius: tokens.radius.lg },
-    variant === 'outline' && styles.outlineButton,
-    variant === 'solid' && styles.solidButton,
+    {
+      height: buttonHeight,
+      borderRadius: tokens.radius.lg,
+    },
+    variant === 'outline' && {
+      backgroundColor: 'transparent',
+      borderWidth: tokens.button.borderWidth || 1.5,
+      borderColor: accentColor,
+    },
+    variant === 'solid' && {
+      backgroundColor: accentColor,
+    },
   ];
 
   return (
@@ -208,7 +223,7 @@ export function PrimaryButton({
       >
         {variant === 'gradient' ? (
           <LinearGradient
-            colors={[colors.gradientStart, colors.gradientEnd]}
+            colors={[gradient[0], gradient[1]]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[styles.button, { height: buttonHeight, borderRadius: tokens.radius.lg }]}
@@ -231,14 +246,6 @@ const styles = StyleSheet.create({
   },
   button: {
     overflow: 'hidden',
-  },
-  solidButton: {
-    backgroundColor: colors.accent,
-  },
-  outlineButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: colors.accent,
   },
   content: {
     flexDirection: 'row',
